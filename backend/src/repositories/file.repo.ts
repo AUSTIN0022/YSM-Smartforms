@@ -12,7 +12,7 @@ export interface IFileRepository {
         context: string;
         fieldKey?: string;
         contactId?: string;
-        eventId: string;
+        eventId?: string;
         visitorId?: string;
         expiresAt?: Date;
     }): Promise<FileAsset>;
@@ -39,7 +39,7 @@ export class FileRepository implements IFileRepository {
         context: string;
         fieldKey?: string;
         contactId?: string;
-        eventId: string;
+        eventId?: string;
         visitorId?: string;
         expiresAt?: Date;
     }): Promise<FileAsset> {

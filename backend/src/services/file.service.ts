@@ -12,7 +12,7 @@ export class FileService {
         private storage: FileStorageProvider
     ) {}
 
-    private resolveFolder(context: FileContext, eventId: string) {
+    private resolveFolder(context: FileContext, eventId?: string) {
         switch (context) {
             case FileContext.FORM_SUBMISSION:
             return `events/${eventId}/submissions`;
@@ -46,11 +46,14 @@ export class FileService {
         expiresInSeconds?: number;
     }) {
 
-        if(!params.eventId) {
-            throw new BadRequestError('eventId is required');
+        if(
+            params.context !== FileContext.USER_AVATAR && 
+            !params.eventId
+        ) {
+            throw new BadRequestError('eventId is required for this context');
         }
 
-        const folder = this.resolveFolder(params.context, params.eventId);
+       const folder = this.resolveFolder(params.context, params.eventId);
 
      
         const uploaded = await this.storage.upload({
@@ -72,7 +75,7 @@ export class FileService {
             name: params.file.originalname,
             size: params.file.size,
             context: params.context,
-            eventId: params.eventId,
+            ...(params.context !== FileContext.USER_AVATAR && { eventId: params.eventId as string }),
             ...(params.contactId !== undefined && { contactId: params.contactId }),
              ...(params.fieldKey !== undefined && { fieldKey: params.fieldKey }),
             ...(params.visitorId !== undefined && { visitorId: params.visitorId }),
@@ -129,7 +132,4 @@ export class FileService {
         // DB
         await this.fileRepo.deleteById(id);
     }
-
-
-
 }

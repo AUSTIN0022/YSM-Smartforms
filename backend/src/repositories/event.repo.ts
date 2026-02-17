@@ -14,6 +14,8 @@ export interface IEventRepository {
     publish(id: string): Promise<EventWithConfig>;
     close(id: string): Promise<EventWithConfig>;
     markAsDeleted(id: string): Promise<EventWithConfig>;
+    findActiveEvents(): Promise<EventWithConfig[]>;
+    getEventPaymentConfig(eventId: string): Promise<PaymentConfig | null>
 }
 
 export class EventRepository implements IEventRepository {
@@ -94,5 +96,18 @@ export class EventRepository implements IEventRepository {
             data: { isDeleted: true },
             include: { paymentConfig: true }
         })
+    }
+
+    async findActiveEvents(): Promise<EventWithConfig[]> {
+        return prisma.event.findMany({
+            where: { status: EventStatus.ACTIVE, isDeleted: false },
+            include: { paymentConfig: true }
+        }) as Promise<EventWithConfig[]>;
+    }
+
+    async getEventPaymentConfig(eventId: string): Promise<PaymentConfig | null> {
+        return await prisma.paymentConfig.findUnique({
+            where: { eventId }
+        });
     }
 }

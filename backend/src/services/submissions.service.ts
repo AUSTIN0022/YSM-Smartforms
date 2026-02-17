@@ -18,6 +18,16 @@ export class SubmissionService {
     private eventRepo: IEventRepository,
     // private redis?: RedisClient // injected later
   ) {}
+  
+  
+  // helper
+    private async incrWithTTL(key: string, ttlSeconds: number) {
+        const value = await redis.incr(key);
+        // if first increment -> set TTL
+        if(value === 1) {
+            await redis.expire(key, ttlSeconds);
+        }
+    }
 
   /** Public: GET /api/forms/:slug 
    * 1. Validate event exists & isActive
@@ -83,7 +93,9 @@ export class SubmissionService {
         const isNewVisit = await redis.set(visitKey, "1",  "EX", 24 * 60 * 60, "NX");
 
         if (isNewVisit === "OK") { 
-            await redis.incr(`analytics:event:${event.id}:visits`);
+            const visitsKey = `analytics:event:${event.id}:visits:delta`;
+            await this.incrWithTTL(visitsKey, 7 * 24 * 60 * 60); // 7 days TTL
+            await redis.sadd("analytics:activeEvents", event.id);
         }
     }  catch(err) {
         logger.warn("Redis analytics failed", err);
@@ -123,7 +135,9 @@ export class SubmissionService {
         const isNew = await redis.set(startKey, "1","EX", 86400, "NX");
 
         if(isNew === "OK") {
-            await redis.incr(`analytics:event:${event.id}:started`);
+            const startedKey = `analytics:event:${event.id}:started:delta`;
+            await this.incrWithTTL(startedKey, 7 * 24 * 60 * 60);
+            await redis.sadd("analytics:activeEvents", event.id);
         }
         
     } catch(err) {
@@ -159,11 +173,6 @@ export class SubmissionService {
     const allFields = form.isMultiStep && form.steps
                 ? form.steps.flatMap(step => step.fields || [])
                 : form.fields || [];
-
-    logger.debug(`\n\n Form : ${JSON.stringify(allFields)}\n\n`);
-    logger.debug(`\n\n Form fields: ${JSON.stringify(form.fields)}\n\n`);
-    logger.debug(`Submitting form, ${ form.id, event.id, slug, visitor.uuid }`);
-    logger.debug(`Answers: ${JSON.stringify(answers)}`);
 
     if(allFields.length === 0) {
         throw new BadRequestError("Form has no fields");
@@ -230,7 +239,10 @@ export class SubmissionService {
     })
     // - Redis increment
     try {
-        await redis.incr(`analytics:event:${event.id}:submitted`);
+        const submittedKey = `analytics:event:${event.id}:submitted:delta`;
+        await this.incrWithTTL(submittedKey, 7 * 24 * 60 * 60); // 7 days TTL
+        await redis.sadd("analytics:activeEvents", event.id);
+        
         await redis.del(`draft:form:${form.id}:visitor:${dbVisitor.id}`);
     } catch(err) {
         logger.warn("Redis analytics failed", err);

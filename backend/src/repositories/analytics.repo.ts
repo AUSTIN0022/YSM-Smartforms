@@ -1,21 +1,92 @@
-import { EventAnalytics, Prisma } from "@prisma/client";
+import { EventAnalytics } from "@prisma/client";
+import { prisma } from "../config/db";
 
 export interface IAnalyticsRepository {
 
-    // Persist Redis counters into DB via (cron/worker) 
-    upsertEventSnapshot(data: {
-        eventId: string;
-        totalVisits: number;
-        totalStarted: number;
-        totalSubmitted: number;
-        conversionRate: number;
-    }): Promise<EventAnalytics>;
-    // Admin Dashboard
-    getEventAnalytics(eventId: string): Promise<EventAnalytics | null>;
-    // Global Admin KPIs
-    getGlobalStats(userId: string): Promise<{
-        totalEvents: number;
-        totalSubmissions: number;
-        totalRevenue: number;
-    }>;
+  incrementEventTotals(data: {
+    eventId: string;
+    visitsDelta: number;
+    startedDelta: number;
+    submittedDelta: number;
+  }): Promise<EventAnalytics>;
+
+  getEventAnalytics(eventId: string): Promise<EventAnalytics | null>;
+
+  getGlobalStats(): Promise<{
+    totalEvents: number;
+    totalSubmissions: number;
+    totalRevenue: number;
+  }>;
+}
+
+export class AnalyticsRepository implements IAnalyticsRepository {
+
+  async incrementEventTotals(data: {
+    eventId: string;
+    visitsDelta: number;
+    startedDelta: number;
+    submittedDelta: number;
+  }): Promise<EventAnalytics> {
+
+    return prisma.$transaction(async (tx) => {
+
+        const current = await tx.eventAnalytics.findUnique({
+            where: { eventId: data.eventId },
+            select: { totalStarted: true, totalSubmitted: true },
+        });
+
+        const newTotalStarted = (current?.totalStarted || 0) + data.startedDelta;
+        const newTotalSubmitted = (current?.totalSubmitted || 0) + data.submittedDelta;
+        const newConversionRate = this.computeRate(newTotalStarted, newTotalSubmitted);
+
+        return tx.eventAnalytics.upsert({
+            where: { eventId: data.eventId },
+            create: {
+                eventId: data.eventId,
+                totalVisits: data.visitsDelta,
+                totalStarted: data.startedDelta,
+                totalSubmitted: data.submittedDelta,
+                conversionRate: this.computeRate(data.startedDelta, data.submittedDelta),
+                lastUpdated: new Date(),
+            },
+            update: {
+                totalVisits: { increment: data.visitsDelta },
+                totalStarted: { increment: data.startedDelta },
+                totalSubmitted: { increment: data.submittedDelta },
+                conversionRate: newConversionRate,
+                lastUpdated: new Date(),
+            },
+        });
+        
+        
+    } )
+  }
+
+  async getEventAnalytics(eventId: string): Promise<EventAnalytics | null> {
+    return prisma.eventAnalytics.findUnique({
+      where: { eventId },
+    });
+  }
+
+  async getGlobalStats() {
+    const [eventCount, submissionCount, revenue] = await Promise.all([
+      prisma.event.count(),
+      prisma.formSubmission.count(),
+      prisma.payment.aggregate({
+        where: { status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      totalEvents: eventCount,
+      totalSubmissions: submissionCount,
+      totalRevenue: revenue._sum.amount || 0,
+    };
+  }
+
+  private computeRate(started: number, submitted: number) {
+    if (started === 0) return 0;
+    return Number(((submitted / started) * 100).toFixed(2));
+  }
 }

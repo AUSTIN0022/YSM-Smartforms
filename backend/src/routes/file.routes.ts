@@ -17,9 +17,7 @@ const storage = getStorageProvider();
 const fileService = new FileService(fileRepo, storage);
 const controller = new FileController(fileService);
 
-
 // POST /api/files/upload
-
 router.post(
     "/upload",
     multerMemoryUpload.single("file"),
@@ -28,15 +26,14 @@ router.post(
     controller.upload
 );
 
-
-// get by file ID
-router.get("/:id", controller.getById);
-
 // get files by contact
 router.get("/contact/:contactId", controller.getByContactId);
 
 // get files by event
 router.get("/event/:eventId", controller.getByEventId);
+
+// get by file ID
+router.get("/:id", controller.getById);
 
 // delete file
 router.delete("/:id", controller.deleteById);

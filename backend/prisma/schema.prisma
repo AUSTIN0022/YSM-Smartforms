@@ -26,8 +26,11 @@ enum SubmissionStatus {
 
 enum PaymentStatus {
   CREATED
+  PENDING
   SUCCESS
   FAILED
+  CANCELLED
+  REFUNDED
 }
 
 enum MessageType {
@@ -48,6 +51,23 @@ enum FormFieldType {
   FILE
   SELECT
 }
+
+enum CertificateStatus {
+    QUEUED
+    PROCESSING
+    GENERATED
+    UPLOADED
+    FAILED
+}
+
+enum CertificateTemplateType {
+    ACHIEVEMENT  
+    APPOINTMENT
+    COMPLETION
+    INTERNSHIP
+    WORKSHOP
+}
+
 
 // USER & AUTH
 
@@ -78,6 +98,7 @@ model Event {
   isDeleted       Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  templateType    CertificateTemplateType   @default(ACHIEVEMENT)
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   form            Form?
@@ -88,7 +109,9 @@ model Event {
   certificates    Certificate[]
   messageLogs     MessageLog[]
   analytics       EventAnalytics?
-  fileAssets       FileAsset[]
+  daliyAnalytics  EventAnalyticsDaily[]
+  fileAssets      FileAsset[]
+
 
   @@index([userId])
   @@index([slug])
@@ -280,7 +303,6 @@ model SubmissionAnswer {
 }
 
 // TAGGING & FOLLOW-UPS
-
 model Tag {
   id   String @id @default(uuid())
   name String @unique
@@ -302,7 +324,6 @@ model ContactTag {
 }
 
 // ANALYTICS (REDIS → DB)
-
 model EventAnalytics {
   id              String   @id @default(uuid())
   eventId         String   @unique
@@ -310,11 +331,29 @@ model EventAnalytics {
   totalStarted    Int      @default(0)
   totalSubmitted  Int      @default(0)
   conversionRate  Float    @default(0)
-  lastUpdated     DateTime @updatedAt
+  lastUpdated     DateTime @default(now()) 
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
+  
+  @@index([eventId])
 }
+
+model EventAnalyticsDaily {
+    id                  String      @id @default(uuid())
+    eventId             String
+    date                DateTime
+    visits              Int         @default(0)
+    started             Int         @default(0)
+    submitted           Int         @default(0)
+    conversionRate      Float       @default(0)
+    createdAt           DateTime    @default(now())
+
+    event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+    @@unique([eventId, date])
+    @@index([eventId, date])
+}
+
 
 // PAYMENTS
 
@@ -328,7 +367,12 @@ model Payment {
   status            PaymentStatus @default(CREATED)
   razorpayOrderId   String?       @unique
   razorpayPaymentId String?       @unique
+  razorpayStatus    String?
   paidAt            DateTime?
+  metadata          Json?
+  attempts          Int           @default(1)
+  failureReason     String?
+  webhookConfirmed  Boolean       @default(false)
   createdAt         DateTime      @default(now())
   isDeleted         Boolean       @default(false)
 
@@ -336,27 +380,32 @@ model Payment {
   submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   contact    Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
-  @@index([eventId])
+  @@index([eventId,status])
+  @@index([submissionId,status])
+  @@index([eventId, createdAt])
   @@index([contactId])
-  @@index([status])
   @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
 
 }
 
 // CERTIFICATES
 
 model Certificate {
-  id             String     @id @default(uuid())
-  submissionId   String     @unique
-  contactId      String
+  id             String             @id @default(uuid())
+  submissionId   String             @unique
+  contactId      String?
   eventId        String
-  certificateUrl String
-  issuedAt       DateTime   @default(now())
-  isDeleted      Boolean    @default(false)
+  fileAssetId    String?
+  status         CertificateStatus   @default(QUEUED)
+  templateType   CertificateTemplateType   @default(ACHIEVEMENT)
+  issuedAt       DateTime?           
+  isDeleted      Boolean            @default(false)
 
-  submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  event      Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  submission FormSubmission         @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  contact    Contact?                @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  event      Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fileAsset  FileAsset? @relation(fields: [fileAssetId], references: [id])
 
   @@index([contactId])
   @@index([eventId])
@@ -385,6 +434,7 @@ model MessageLog {
 }
 
 
+// File Assets (for form uploads, etc.)
 model FileAsset {
     id              String @id @default(uuid())
     url             String
@@ -402,6 +452,8 @@ model FileAsset {
 
     contact       Contact? @relation(fields: [contactId], references: [id])
     event         Event?  @relation(fields: [eventId], references: [id])
+
+    certificate Certificate[]
 
     @@index([url])
     @@index([contactId])

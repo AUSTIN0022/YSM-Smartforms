@@ -10,6 +10,7 @@ export const toEventResponseDTO = (event: EventWithConfig): EventResponseDTO => 
         description: event.description,
         status: event.status,
         paymentEnabled: event.paymentEnabled,
+        templateType: event.templateType,
     };
 
     if (event.paymentConfig) {

@@ -38,6 +38,13 @@ export class FileController {
         expiresInSeconds,
       } = req.body;
 
+      if(!Object.values(FileContext).includes(context)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid file context",
+            })
+      }
+
       const result = await this.fileService.upload({
         file: req.file,
         context: context as FileContext,
