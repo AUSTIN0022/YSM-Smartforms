@@ -4,7 +4,6 @@ import { FileService } from "../services/file.service";
 import { FileContext } from "../types/file-context.enum";
 import { resolveTemplate } from "../templates/template-registry";
 import logger from "../config/logger";
-import { fi } from "zod/v4/locales";
 
 export class CertificateWorkerService {
 
@@ -17,13 +16,13 @@ export class CertificateWorkerService {
     async generate(jobData: { certificateId: string }) {
 
         const certificate = await this.certificateRepo.findById(jobData.certificateId);
+        if (!certificate) throw new Error("Certificate not found");
 
         if(certificate?.status === "GENERATED") {
             logger.info(`Certificate ${certificate.id} already generated, skipping.`);
             return;
         }
         
-        if (!certificate) throw new Error("Certificate not found");
 
         try {
             await this.certificateRepo.updateStatus(certificate.id, "PROCESSING");
@@ -37,12 +36,17 @@ export class CertificateWorkerService {
                 phone:            certificate.contact?.phone  ?? "",
                 eventTitle:       certificate.event.title,
                 description:      certificate.event.description ?? "",
-                date:             new Date().toLocaleDateString("en-US", {
+                date:             certificate.event.date      ? new Date(certificate.event.date).toLocaleDateString("en-US", {
                                       year: "numeric", month: "long", day: "numeric"
-                                  }),
+                                  }) : "",
+                certificateId:    certificate.id,
             };
 
-            const pdfBuffer = await this.generator.generate({ data, template });
+            const pdfBuffer = await this.generator.generate({ 
+                        data, 
+                        template,
+                        certificateId: certificate.id,
+                        baseUrl: process.env.BASE_URL || "http://localhost:3000"});
 
             const filename = `${certificate.event.title}-${certificate.contact?.name ?? "participant" }.pdf`
                                 .replace(/\s+/g, "_").toLowerCase();
@@ -51,6 +55,7 @@ export class CertificateWorkerService {
                 file: bufferToMulter(pdfBuffer, filename),
                 context: FileContext.FORM_CERTIFICATE,
                 eventId: certificate.eventId,
+                eventSlug: certificate.event.slug,
                 ...(certificate.contactId && { contactId: certificate.contactId }),
             });
 

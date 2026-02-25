@@ -1,29 +1,24 @@
 import PDFDocument from 'pdfkit';
+import path from 'path';
 
 // ===== TYPE DEFINITIONS =====
 
-interface Corner {
-  x: number;
-  y: number;
-}
-
 interface WorkshopCertificateData {
-  name: string;
-  workshopTitle: string;
-  duration: string;
-  date: string;
-  coordinatorName?: string;
+  name?: string;
+  workshopTitle?: string;
+  date?: string;
+  certificateId?: string;
 }
 
 interface DocumentSettings {
-  size: string;
+  size: string | [number, number];
   layout: 'landscape' | 'portrait';
-  margins: {
-    top: number;
-    bottom: number;
-    left: number;
-    right: number;
-  };
+  margin: number;
+}
+
+interface TextRun {
+  t: string; // text content
+  b: boolean; // is bold
 }
 
 interface WorkshopCertificateModule {
@@ -31,219 +26,180 @@ interface WorkshopCertificateModule {
   settings: DocumentSettings;
 }
 
+// ===== ASSETS & CONSTANTS =====
+
+const BG_PATH  = path.join(__dirname, '..', 'assets', 'Participation_Certi_Backgrounnd.png');
+const LOGO_PATH = path.join(__dirname, '..', 'assets', 'ysm_logo.png');
+const SIGNATURE_PATH = path.join(__dirname, '..', 'assets', 'ysm_signature.png');
+
+const COLORS = {
+  navyTitle: '#1F3864',
+  nameBlue: '#2E548A',
+  bodyDark: '#132030',
+  black: '#000000',
+};
+
 // ===== CERTIFICATE DRAWING FUNCTION =====
 
 /**
- * Workshop Certificate Template
+ * YSM Info Solution - Certificate of Participation
  * @param doc - The PDFKit document instance
  * @param data - Certificate data
  */
-function drawWorkshopCertificate(doc: typeof PDFDocument, data: WorkshopCertificateData): void {
-  const pageWidth: number = 841.89;  // A4 landscape width
-  const pageHeight: number = 595.28; // A4 landscape height
-  const centerX: number = pageWidth / 2;
+function drawWorkshopCertificate(doc: typeof PDFDocument, data: WorkshopCertificateData, qrBuffer?: Buffer ): void {
+  const PAGE_W = 792;
+  const PAGE_H = 612;
 
-  // ===== DECORATIVE BORDER =====
-  // Outer border
-  doc.rect(20, 20, pageWidth - 40, pageHeight - 40)
-    .lineWidth(3)
-    .strokeColor('#2E86C1') // Blue for workshop
-    .stroke();
+  const name = data.name || 'Name';
+  const workshopTitle = data.workshopTitle || '[Workshop_Title]';
+  const date = data.date || '[Date]';
+  const certificateId = data.certificateId || 'xyz-xyz-xyx-xyz';
 
-  // Inner border
-  doc.rect(30, 30, pageWidth - 60, pageHeight - 60)
-    .lineWidth(1)
-    .strokeColor('#2E86C1')
-    .stroke();
-
-  // Corner decorations
-  const cornerSize: number = 40;
-  const corners: Corner[] = [
-    { x: 40, y: 40 },                              // Top-left
-    { x: pageWidth - 80, y: 40 },                  // Top-right
-    { x: 40, y: pageHeight - 80 },                 // Bottom-left
-    { x: pageWidth - 80, y: pageHeight - 80 }      // Bottom-right
-  ];
-
-  corners.forEach((corner: Corner) => {
-    doc.moveTo(corner.x, corner.y)
-      .lineTo(corner.x + cornerSize, corner.y)
-      .moveTo(corner.x, corner.y)
-      .lineTo(corner.x, corner.y + cornerSize)
-      .lineWidth(2)
-      .strokeColor('#F39C12') // Accent color
-      .stroke();
+  // 1. FULL PAGE BACKGROUND
+  doc.image(BG_PATH, 0, 0, {
+    width: PAGE_W,
+    height: PAGE_H
   });
 
-  // ===== HEADER =====
-  doc.fontSize(36)
-    .font('Helvetica-Bold')
-    .fillColor('#2E86C1')
-    .text('CERTIFICATE OF PARTICIPATION', 0, 80, {
-      width: pageWidth,
-      align: 'center'
+  // 2. LOGO - Centered
+  const LOGO_W = 110;
+  doc.image(LOGO_PATH, (PAGE_W / 2) - (LOGO_W / 2), 40, { width: LOGO_W });
+
+  // 3. TITLE
+  doc.font('Helvetica-Bold')
+    .fontSize(36)
+    .fillColor(COLORS.navyTitle)
+    .text('CERTIFICATE OF PARTICIPATION', 0, 155, {
+      width: PAGE_W,
+      align: 'center',
     });
 
-  // Decorative line under header
-  doc.moveTo(centerX - 150, 135)
-    .lineTo(centerX + 150, 135)
-    .lineWidth(2)
-    .strokeColor('#F39C12')
-    .stroke();
+  // 4. SUBTITLE
+  doc.font('Helvetica')
+    .fontSize(16)
+    .fillColor(COLORS.black)
+    .text('Is hereby granted to', 0, 215, { width: PAGE_W, align: 'center' });
 
-  // ===== "PROUDLY PRESENTED TO" =====
-  doc.fontSize(14)
-    .font('Helvetica')
-    .fillColor('#333333')
-    .text('PROUDLY PRESENTED TO', 0, 160, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 5. NAME
+  doc.font('Helvetica-Bold')
+    .fontSize(42)
+    .fillColor(COLORS.nameBlue)
+    .text(`\u201c${name}\u201d`, 0, 245, { width: PAGE_W, align: 'center' });
 
-  // ===== RECIPIENT NAME =====
-  doc.fontSize(42)
-    .font('Helvetica-Bold')
-    .fillColor('#000000')
-    .text(data.name, 0, 200, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 6. PARTICIPATION STATEMENT
+  const BODY_Y = 325;
+  _mixedCentered(doc, 100, BODY_Y, PAGE_W - 200, 15, [
+    { t: 'has successfully participated in the ', b: false },
+    { t: `\u201c${workshopTitle}\u201d`, b: true },
+    { t: ' organized by ', b: false },
+    { t: 'YSM INFO SOLUTION', b: true },
+    { t: ' on ', b: false },
+    { t: date, b: true },
+    { t: '.', b: false },
+  ], COLORS.bodyDark);
 
-  // Underline under name
-  doc.fontSize(48);
-  const nameWidth: number = doc.widthOfString(data.name);
-  const nameUnderlineStart: number = centerX - (nameWidth / 2);
-  const nameUnderlineEnd: number = centerX + (nameWidth / 2);
+  if (qrBuffer) {
+    const qrSize = 60;
+    const qrX    = PAGE_W - qrSize - 40;
+    const qrY    = PAGE_H - qrSize - 40;
 
-  doc.moveTo(nameUnderlineStart, 255)
-    .lineTo(nameUnderlineEnd, 255)
-    .lineWidth(1)
-    .strokeColor('#666666')
-    .stroke();
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
 
-  // ===== PARTICIPATION TEXT =====
-  doc.fontSize(14)
-    .font('Helvetica')
-    .fillColor('#333333')
-    .text('for successfully participating in the workshop', 0, 280, {
-      width: pageWidth,
-      align: 'center'
-    });
-
-  // ===== WORKSHOP TITLE =====
-  doc.fontSize(24)
-    .font('Helvetica-Bold')
-    .fillColor('#2E86C1')
-    .text(data.workshopTitle, 0, 315, {
-      width: pageWidth,
-      align: 'center'
-    });
-
-  // ===== DATE AND DURATION =====
-  const detailsY: number = 365;
-
-  doc.fontSize(14)
-    .font('Helvetica')
-    .fillColor('#333333')
-    .text(`Duration: ${data.duration} (${data.date})`, 0, detailsY, {
-      width: pageWidth,
-      align: 'center'
-    });
-
-  // ===== FOOTER SECTION =====
-  const footerY: number = pageHeight - 120;
-
-  // Date of Issue
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('#666666')
-    .text('Date of Issue', 150, footerY, {
-      width: 150,
-      align: 'center'
-    });
-
-  const issueDate: string = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  doc.fontSize(12)
-    .font('Helvetica-Bold')
-    .fillColor('#000000')
-    .text(issueDate, 150, footerY + 20, {
-      width: 150,
-      align: 'center'
-    });
-
-  // Date signature line
-  doc.moveTo(150, footerY + 50)
-    .lineTo(300, footerY + 50)
-    .lineWidth(1)
-    .strokeColor('#333333')
-    .stroke();
-
-  // Workshop Coordinator section
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('#666666')
-    .text('Workshop Coordinator', pageWidth - 300, footerY, {
-      width: 150,
-      align: 'center'
-    });
-
-  // Coordinator signature line
-  doc.moveTo(pageWidth - 300, footerY + 50)
-    .lineTo(pageWidth - 150, footerY + 50)
-    .lineWidth(1)
-    .strokeColor('#333333')
-    .stroke();
-
-  // Coordinator Name
-  if (data.coordinatorName) {
-    doc.fontSize(11)
-      .font('Helvetica-Bold')
-      .fillColor('#000000')
-      .text(data.coordinatorName, pageWidth - 300, footerY + 55, {
-        width: 150,
-        align: 'center'
+    doc.fontSize(6)
+      .font('Helvetica')
+      .fillColor('#888888')
+      .text(`Certificate ID: ${certificateId}`, qrX, qrY + qrSize + 2, {
+        width: qrSize,
+        align: 'center',
       });
   }
 
-  // ===== DECORATIVE SEAL/BADGE =====
-  const sealX: number = centerX;
-  const sealY: number = footerY + 25;
-  const sealRadius: number = 25;
 
-  // Outer circle
-  doc.circle(sealX, sealY, sealRadius)
-    .lineWidth(2)
-    .strokeColor('#F39C12')
-    .fillColor('#2E86C1', 0.1)
-    .fillAndStroke();
+  // 7. SIGNATURE (Centered under text)
+  const SIG_W = 180;
+  doc.image(SIGNATURE_PATH, (PAGE_W / 2) - (SIG_W / 2), 440, { width: SIG_W });
 
-  // Inner circle
-  doc.circle(sealX, sealY, sealRadius - 5)
-    .lineWidth(1)
-    .strokeColor('#F39C12')
-    .stroke();
 
-  // W for Workshop
-  doc.fontSize(20)
-    .font('Helvetica-Bold')
-    .fillColor('#F39C12')
-    .text('W', sealX - 9, sealY - 10);
+  // 8. QR CODE / CERT ID AREA
+  
+  if (qrBuffer) {
+    const qrSize = 70;
+    const qrX    = PAGE_W - qrSize - 40;
+    const qrY    = PAGE_H - qrSize - 40;
+
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    doc.fontSize(6)
+      .font('Helvetica')
+      .fillColor('#888888')
+      .text(`certficate ID: ${certificateId}`, qrX, qrY + qrSize + 2, {
+        width: qrSize,
+        align: 'center',
+      });
+  }
+}
+
+/**
+ * Helper: Mixed bold/normal text center alignment
+ */
+function _mixedCentered(
+  doc: typeof PDFDocument,
+  x: number,
+  startY: number,
+  maxW: number,
+  fs: number,
+  runs: TextRun[],
+  color: string
+): void {
+  const LH = fs * 1.5;
+  const tokens: { w: string; b: boolean }[] = [];
+
+  runs.forEach(({ t, b }) =>
+    t.split(' ').forEach((w, i, a) =>
+      tokens.push({ w: w + (i < a.length - 1 ? ' ' : ''), b })
+    )
+  );
+
+  const lines: { w: string; b: boolean; tw: number }[][] = [];
+  let line: { w: string; b: boolean; tw: number }[] = [];
+  let lw = 0;
+
+  tokens.forEach(tok => {
+    doc.font(tok.b ? 'Helvetica-Bold' : 'Helvetica').fontSize(fs);
+    const tw = doc.widthOfString(tok.w);
+    if (lw + tw > maxW && line.length) {
+      lines.push(line);
+      line = [];
+      lw = 0;
+    }
+    line.push({ ...tok, tw });
+    lw += tw;
+  });
+  if (line.length) lines.push(line);
+
+  let cy = startY;
+  lines.forEach(ln => {
+    const total = ln.reduce((s, t) => s + t.tw, 0);
+    let cx = x + (maxW - total) / 2;
+    ln.forEach(tok => {
+      doc.font(tok.b ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(fs)
+        .fillColor(color)
+        .text(tok.w, cx, cy, { lineBreak: false });
+      cx += tok.tw;
+    });
+    cy += LH;
+  });
 }
 
 // ===== TEMPLATE SETTINGS =====
 
 const settings: DocumentSettings = {
-  size: 'A4',
+  size: 'Letter',
   layout: 'landscape',
-  margins: { top: 0, bottom: 0, left: 0, right: 0 }
+  margin: 0
 };
 
-// Attach settings to the function
 drawWorkshopCertificate.settings = settings;
 
 const workshopCertificateModule: WorkshopCertificateModule = {

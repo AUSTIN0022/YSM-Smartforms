@@ -39,6 +39,13 @@ enum MessageType {
   SMS
 }
 
+enum MessageStatus {
+    QUEUED
+    PROCESSING
+    SENT
+    FAILED
+}
+
 enum FormFieldType {
   TEXT
   NUMBER
@@ -98,7 +105,8 @@ model Event {
   isDeleted       Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  templateType    CertificateTemplateType   @default(ACHIEVEMENT)
+  templateType    CertificateTemplateType   @default(COMPLETION)
+  date            DateTime?
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   form            Form?
@@ -398,7 +406,7 @@ model Certificate {
   eventId        String
   fileAssetId    String?
   status         CertificateStatus   @default(QUEUED)
-  templateType   CertificateTemplateType   @default(ACHIEVEMENT)
+  templateType   CertificateTemplateType   @default(COMPLETION)
   issuedAt       DateTime?           
   isDeleted      Boolean            @default(false)
 
@@ -413,24 +421,27 @@ model Certificate {
 }
 
 // MESSAGING / CAMPAIGNS
-
 model MessageLog {
-  id            String      @id @default(uuid())
-  contactId     String
-  eventId       String?
-  type          MessageType
-  template      String
-  status        String
-  sentAt        DateTime    @default(now())
-  isDeleted     Boolean     @default(false)
+  id                String          @id @default(uuid())
+  contactId         String
+  eventId           String?
+  type              MessageType
+  template          String
+  status            MessageStatus   @default(QUEUED)
+  sentAt            DateTime
+  providerResponse  Json?
+  errorMessage      String?
+  attempts          Int             @default(1)
+  isDeleted         Boolean         @default(false)
+  createdAt         DateTime        @default(now())
 
-  contact       Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  event         Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  contact           Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  event             Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
   @@index([contactId])
   @@index([eventId])
   @@index([status])
-
+  @@index([type])
 }
 
 

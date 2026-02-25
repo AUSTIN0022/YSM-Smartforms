@@ -1,9 +1,12 @@
 import { PassThrough } from 'node:stream';
 import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
+import logger from '../config/logger';
 export interface CertificateTemplate  {
     (
     doc: typeof PDFDocument,
     data: Record<string, unknown>,
+    qrBuffer: Buffer,
 ):  void;
 
     settings?: {
@@ -24,20 +27,20 @@ export class CertificateGeneratorService {
     private defaultSettings = {
         size: "A4",
         layout: "landscape" as const,
-        margins: {
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0
-        }
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
     };
 
     async generate(params: {
         data: any,
         template: CertificateTemplate;
+        certificateId: string;
+        baseUrl: string;
     }): Promise<Buffer> {
 
-        const { data, template } = params;
+        const { data, template, certificateId, baseUrl } = params;
+
+        const verifyUrl = `${baseUrl}/certificates/verify?certificateId=${certificateId}`;
+        const qrBuffer = await QRCode.toBuffer(verifyUrl, { type: 'png', width: 200, margin: 1 });
 
         const settings = template.settings || this.defaultSettings;
 
@@ -63,8 +66,8 @@ export class CertificateGeneratorService {
 
                 doc.pipe(stream);
 
-
-                template(doc, data);
+                logger.debug(`Data: ${JSON.stringify(data)}`);
+                template(doc, data, qrBuffer);
 
                 doc.end();
 

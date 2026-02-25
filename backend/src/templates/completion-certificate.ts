@@ -1,24 +1,24 @@
 import PDFDocument from 'pdfkit';
+import path from 'path';
 
 // ===== TYPE DEFINITIONS =====
 
 interface CompletionCertificateData {
   name: string;
-  courseName: string;
-  completionDate?: string;
-  instructorName?: string;
-  certificateId?: string;
+  eventTitle: string;
+  date: string;
+  certificateId: string;
 }
 
 interface DocumentSettings {
-  size: string;
+  size: string | [number, number];
   layout: 'landscape' | 'portrait';
-  margins: {
-    top: number;
-    bottom: number;
-    left: number;
-    right: number;
-  };
+  margin: number;
+}
+
+interface TextRun {
+  t: string; // text
+  b: boolean; // isBold
 }
 
 interface CompletionCertificateModule {
@@ -26,199 +26,197 @@ interface CompletionCertificateModule {
   settings: DocumentSettings;
 }
 
+// ===== CONSTANTS & ASSETS =====
+
+const BG_PATH = path.join(__dirname, '..', 'assets', 'Completion_Certi_Background.png');
+const DECORATION_PATH = path.join(__dirname, '..', 'assets', 'Certification_Certi_Title_Decoration.png');
+const LOGO_PATH = path.join(__dirname, '..', 'assets', 'ysm_logo.png');
+const SIGNATURE_PATH = path.join(__dirname, '..', 'assets', 'ysm_signature.png');
+
+
+const COLORS = {
+  white: '#FFFFFF',
+  navyTitle: '#213966',
+  goldName: '#F4BF58',
+  bodyText: '#333333',
+  black: '#000000',
+};
+
 // ===== CERTIFICATE DRAWING FUNCTION =====
 
 /**
- * Certificate of Completion Template
+ * Completion Certificate Template
  * @param doc - The PDFKit document instance
  * @param data - Certificate data
  */
-function drawCompletionCertificate(doc: typeof PDFDocument, data: CompletionCertificateData): void {
-  const pageWidth: number = 841.89;  // A4 landscape width
-  const pageHeight: number = 595.28; // A4 landscape height
-  const centerX: number = pageWidth / 2;
+function drawCompletionCertificate(doc: typeof PDFDocument, data: CompletionCertificateData, qrBuffer?: Buffer): void {
+  const PAGE_W = 792;
+  const PAGE_H = 612;
 
-  // ===== DECORATIVE BORDER =====
-  // Outer border
-  doc.rect(20, 20, pageWidth - 40, pageHeight - 40)
-    .lineWidth(4)
-    .strokeColor('#27AE60') // Green for completion
-    .stroke();
+  const name = data.name || 'Name';
+  const workshopTitle = data.eventTitle || '[Workshop_Title]';
+  const date = data.date || '[Date]';
+  const certificateId = data.certificateId || 'xyz-xyz-xyx-xyz';
 
-  // Inner border
-  doc.rect(35, 35, pageWidth - 70, pageHeight - 70)
-    .lineWidth(1)
-    .strokeColor('#27AE60')
-    .stroke();
+  // 1. WHITE BASE
+  doc.rect(0, 0, PAGE_W, PAGE_H).fill(COLORS.white);
 
-  // Corner decorations - Simple arcs
-  const arcRadius: number = 40;
+  // 2. LEFT PANEL (Combined Background + Badge)
+  const PANEL_W = 180;
+  doc.image(BG_PATH, 0, 0, { width: PANEL_W, height: PAGE_H });
 
-  // Top-left
-  doc.path(`M 40 ${40 + arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${40 + arcRadius} 40`)
-    .lineWidth(2)
-    .strokeColor('#27AE60')
-    .stroke();
+  // 3. CONTENT COLUMN CONSTANTS
+  const COL_X = PANEL_W;
+  const COL_W = PAGE_W - COL_X;
+  const COL_CX = COL_X + (COL_W / 2);
 
-  // Top-right
-  doc.path(`M ${pageWidth - 40 - arcRadius} 40 A ${arcRadius} ${arcRadius} 0 0 1 ${pageWidth - 40} ${40 + arcRadius}`)
-    .lineWidth(2)
-    .strokeColor('#27AE60')
-    .stroke();
+  // 4. YSM LOGO
+  const LOGO_W = 100;
+  doc.image(LOGO_PATH, COL_CX - (LOGO_W / 2), 35, { width: LOGO_W });
 
-  // Bottom-right
-  doc.path(`M ${pageWidth - 40} ${pageHeight - 40 - arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${pageWidth - 40 - arcRadius} ${pageHeight - 40}`)
-    .lineWidth(2)
-    .strokeColor('#27AE60')
-    .stroke();
-
-  // Bottom-left
-  doc.path(`M ${40 + arcRadius} ${pageHeight - 40} A ${arcRadius} ${arcRadius} 0 0 1 40 ${pageHeight - 40 - arcRadius}`)
-    .lineWidth(2)
-    .strokeColor('#27AE60')
-    .stroke();
-
-  // ===== HEADER =====
-  doc.fontSize(40)
-    .font('Helvetica-Bold')
-    .fillColor('#1E8449')
-    .text('CERTIFICATE OF COMPLETION', 0, 80, {
-      width: pageWidth,
-      align: 'center'
+  // 5. MAIN TITLE
+  doc.font('Helvetica-Bold')
+    .fontSize(34)
+    .fillColor(COLORS.navyTitle)
+    .text('CERTIFICATE OF COMPLETION', COL_X, 115, {
+      width: COL_W,
+      align: 'center',
     });
 
-  // ===== "AWARDED TO" =====
-  doc.fontSize(16)
-    .font('Helvetica')
-    .fillColor('#555555')
-    .text('This certificate is proudly awarded to', 0, 150, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 6. DECORATION LINE
+  const DECO_W = 350;
+  doc.image(DECORATION_PATH, COL_CX - (DECO_W / 2), 160, { width: DECO_W });
 
-  // ===== RECIPIENT NAME =====
-  doc.fontSize(48)
-    .font('Helvetica-Bold')
-    .fillColor('#000000')
-    .text(data.name, 0, 190, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 7. "This is to certify that"
+  doc.font('Helvetica')
+    .fontSize(14)
+    .fillColor(COLORS.black)
+    .text('This is to certify that', COL_X, 220, { width: COL_W, align: 'center' });
 
-  // Underline under name
-  doc.fontSize(48);
-  const nameWidth: number = doc.widthOfString(data.name);
-  const nameUnderlineStart: number = centerX - (nameWidth / 2) - 20;
-  const nameUnderlineEnd: number = centerX + (nameWidth / 2) + 20;
+  // 8. PARTICIPANT NAME
+  doc.font('Helvetica-Bold')
+    .fontSize(44)
+    .fillColor(COLORS.goldName)
+    .text(`${name}`, COL_X, 255, { width: COL_W, align: 'center' });
 
-  doc.moveTo(nameUnderlineStart, 250)
-    .lineTo(nameUnderlineEnd, 250)
-    .lineWidth(2)
-    .strokeColor('#1E8449')
-    .stroke();
+  // 9. PARTICIPATION BLOCK
+  const BODY_Y = 325;
+  _mixedCentered(doc, COL_X, BODY_Y, COL_W, 14, [
+    { t: 'has successfully participated in the ', b: false },
+    { t: `\u201c${workshopTitle}\u201d`, b: true },
+    { t: ' organized by ', b: false },
+    { t: 'YSM INFO SOLUTION', b: true },
+    { t: ' on ', b: false },
+    { t: date, b: true },
+    { t: '.', b: false },
+  ], COLORS.bodyText);
 
-  // ===== COMPLETION TEXT =====
-  doc.fontSize(16)
-    .font('Helvetica')
-    .fillColor('#555555')
-    .text('for successfully completing the course', 0, 280, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 10. DESCRIPTION TEXT
+  doc.font('Helvetica')
+    .fontSize(13)
+    .fillColor(COLORS.bodyText)
+    .text(
+      'The workshop focused on enhancing domain knowledge, practical understanding, and professional skills. The participant demonstrated active involvement and dedication throughout the session.',
+      COL_X + 40, 400, { width: COL_W - 80, align: 'center', lineGap: 3 }
+    );
 
-  // ===== COURSE NAME =====
-  doc.fontSize(28)
-    .font('Helvetica-BoldOblique')
-    .fillColor('#1E8449')
-    .text(data.courseName, 0, 320, {
-      width: pageWidth,
-      align: 'center'
-    });
+  // 11. SIGNATURE SECTION
+  const SIG_W = 180;
+  const SIG_X = COL_X + 50;
+  const SIG_Y = 480;
+  doc.image(SIGNATURE_PATH, SIG_X, SIG_Y, { width: SIG_W });
 
-  // ===== DATE =====
-  if (data.completionDate) {
-    doc.fontSize(14)
+
+  // 12. QR CODE / CERT ID AREA
+ // ===== QR CODE (bottom-right, optional) =====
+
+  if (qrBuffer) {
+    const qrSize = 70;
+    const qrX    = PAGE_W - qrSize - 40;
+    const qrY    = PAGE_H - qrSize - 40;
+
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    doc.fontSize(6)
       .font('Helvetica')
-      .fillColor('#555555')
-      .text(`Completed on ${data.completionDate}`, 0, 370, {
-        width: pageWidth,
-        align: 'center'
+      .fillColor('#888888')
+      .text(`certficate ID: ${certificateId}`, qrX, qrY + qrSize + 2, {
+        width: qrSize,
+        align: 'center',
       });
   }
 
-  // ===== FOOTER SECTION =====
-  const footerY: number = pageHeight - 120;
+}
 
-  // Date of Issue
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('#666666')
-    .text('Date of Issue', 150, footerY);
+/**
+ * Helper for rendering mixed bold/regular text centered in a block
+ */
+function _mixedCentered(
+  doc: typeof PDFDocument,
+  x: number,
+  startY: number,
+  maxW: number,
+  fs: number,
+  runs: TextRun[],
+  color: string
+): void {
+  const LH = fs * 1.5;
+  const tokens: { w: string; b: boolean }[] = [];
+  
+  runs.forEach(({ t, b }) =>
+    t.split(' ').forEach((w, i, a) =>
+      tokens.push({ w: w + (i < a.length - 1 ? ' ' : ''), b })
+    )
+  );
 
-  const issueDate: string = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  const lines: { w: string; b: boolean; tw: number }[][] = [];
+  let line: { w: string; b: boolean; tw: number }[] = [];
+  let lw = 0;
+
+  tokens.forEach(tok => {
+    doc.font(tok.b ? 'Helvetica-Bold' : 'Helvetica').fontSize(fs);
+    const tw = doc.widthOfString(tok.w);
+    if (lw + tw > maxW && line.length) {
+      lines.push(line);
+      line = [];
+      lw = 0;
+    }
+    line.push({ ...tok, tw });
+    lw += tw;
   });
+  if (line.length) lines.push(line);
 
-  doc.fontSize(12)
-    .font('Helvetica-Bold')
-    .fillColor('#000000')
-    .text(issueDate, 150, footerY + 15);
-
-  doc.moveTo(150, footerY + 35)
-    .lineTo(300, footerY + 35)
-    .lineWidth(1)
-    .strokeColor('#555555')
-    .stroke();
-
-  // Instructor Signature
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('#666666')
-    .text('Instructor Signature', pageWidth - 300, footerY);
-
-  doc.moveTo(pageWidth - 300, footerY + 35)
-    .lineTo(pageWidth - 150, footerY + 35)
-    .lineWidth(1)
-    .strokeColor('#555555')
-    .stroke();
-
-  // Instructor Name
-  if (data.instructorName) {
-    doc.fontSize(12)
-      .font('Helvetica-Bold')
-      .fillColor('#000000')
-      .text(data.instructorName, pageWidth - 300, footerY + 40);
-  }
-
-  // ===== CERTIFICATE ID (Bottom Center) =====
-  if (data.certificateId) {
-    doc.fontSize(10)
-      .font('Courier')
-      .fillColor('#999999')
-      .text(`Certificate ID: ${data.certificateId}`, 0, pageHeight - 30, {
-        width: pageWidth,
-        align: 'center'
-      });
-  }
+  let cy = startY;
+  lines.forEach(ln => {
+    const total = ln.reduce((s, t) => s + t.tw, 0);
+    let cx = x + (maxW - total) / 2;
+    ln.forEach(tok => {
+      doc.font(tok.b ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(fs)
+        .fillColor(color)
+        .text(tok.w, cx, cy, { lineBreak: false });
+      cx += tok.tw;
+    });
+    cy += LH;
+  });
 }
 
 // ===== TEMPLATE SETTINGS =====
 
-const settings: DocumentSettings = {
-  size: 'A4',
-  layout: 'landscape',
-  margins: { top: 0, bottom: 0, left: 0, right: 0 }
+const settings: DocumentSettings = { 
+  size: 'Letter', 
+  layout: 'landscape', 
+  margin: 0 
 };
 
-// Attach settings to the function
+
 drawCompletionCertificate.settings = settings;
 
 const completionCertificateModule: CompletionCertificateModule = {
   drawCompletionCertificate,
-  settings
+  settings,
 };
+
 
 export default completionCertificateModule;
 export { drawCompletionCertificate, settings };

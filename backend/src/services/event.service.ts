@@ -30,6 +30,8 @@ export class EventService {
             slug,
             description: data.description ?? undefined,
             status: data.status,
+            templateType: data.templateType,
+            date: data.date,
             paymentEnabled: data.paymentEnabled,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount,
@@ -45,7 +47,6 @@ export class EventService {
         const event = await this.eventRepositor.findById(id);
         if (!event) throw new NotFoundError(`No Event found`);
         if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-
         
         const updatedEvent = await this.eventRepositor.update(id, {
             title: data.title ?? undefined,

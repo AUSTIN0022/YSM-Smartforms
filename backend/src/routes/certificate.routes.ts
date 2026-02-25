@@ -25,5 +25,7 @@ router.post(
     controller.issue
 );
 
+// GET /api/certificates/verify?certificateId=xxx
+router.get("/verify", controller.verify);
 
 export default router;

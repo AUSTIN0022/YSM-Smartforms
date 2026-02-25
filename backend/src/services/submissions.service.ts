@@ -202,6 +202,7 @@ export class SubmissionService {
     
     // - Upsert visitor
     const dbVisitor = await this.submissionRepo.upsertVisitor(visitor);
+    
     // - Handle contact
     let contactId: string | undefined;
     

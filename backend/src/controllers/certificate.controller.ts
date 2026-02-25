@@ -55,4 +55,28 @@ export class CertificateController {
       next(error);
     }
   };
+
+  verify = async (req: Request, res: Response, next: NextFunction) => {
+    const { certificateId } = req.query;
+
+    if(!certificateId || typeof certificateId !== 'string' ) {
+        return res.status(400).json({
+            message: "certificate is required"
+        });
+    }
+
+    const certificate = await this.certificateService.findById(certificateId);
+
+    if(!certificate) {
+        return res.status(404).json({ message: "Certificate not found"});
+    }
+
+    return res.status(200).json({
+        success: true,
+        data: certificate
+    });
+
+
+  }
+
 }

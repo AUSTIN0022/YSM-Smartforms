@@ -12,6 +12,8 @@ export type CertificateWithRelations = Certificate & {
         id: string;
         title: string;
         description: string | null;
+        slug: string;
+        date: Date | null;
     };
 }
 
@@ -70,6 +72,8 @@ export class CertificateRepository implements ICertificateRepository {
                         id: true,
                         title: true,
                         description: true,
+                        slug: true,
+                        date: true,
                     }
                 }
             }

@@ -75,7 +75,54 @@ export class CertificateService {
     }
 
     // Existing but not GENERATED (FAILED/QUEUED) — re-queue
-    await certificateQueue.add("generate-certificate", { certificateId: existing.id }, { jobId: existing.id });
+    await this.ensureJobExists(existing.id);
     return existing;
+  }
+
+
+  private async ensureJobExists(certificateId: string) { 
+    const job = await certificateQueue.getJob(certificateId);
+
+    if(!job) {
+        await certificateQueue.add(
+            "generate-certificate",
+            { certificateId },
+            { jobId: certificateId }
+        );
+        return;
+    }
+
+    const state = await job.getState();
+
+    if(state === 'failed' ) {
+        await job.remove();
+        await certificateQueue.add(
+            "generate-certificate",
+            { certificateId },
+            { jobId: certificateId }
+        );
+        return;
+    }
+
+  }
+
+  async findById(certificateId: string) {
+    
+    const certificate = await this.certificateRepo.findById(certificateId);
+
+    if(!certificate) {
+        throw new NotFoundError("Certificate not found");
+    }
+
+    const data  = {
+        valid:      certificate.status === "GENERATED",
+        status:     certificate.status,
+        issuedTo:   certificate.contact?.email ?? null,
+        email:      certificate.contact?.email ?? null,
+        event:      certificate.event.title,
+        issuedAt:   certificate.issuedAt,
+    } 
+
+    return data; 
   }
 }

@@ -5,6 +5,8 @@ export const createEventSchema = z.object({
         title: z.string().min(1, "Title is required").max(200, "Title too long"),
         description: z.string().min(1, "Description is required"),
         status: z.enum(['DRAFT','ACTIVE'], ),
+        date: z.string().optional(),
+        templateType: z.enum(["COMPLETION", "ACHIEVEMENT", "WORKSHOP", "INTERNSHIP", "APPOINTMENT"]).optional(),
         paymentEnabled: z.boolean(),
         paymentConfig: z.object({
             amount: z.number().int().positive(),
@@ -19,6 +21,8 @@ export const updateEventSchema = z.object({
     title: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["DRAFT", "ACTIVE", "CLOSED"]).optional(),
+    date: z.string().optional(),
+    templateType: z.enum(["COMPLETION", "ACHIEVEMENT", "WORKSHOP", "INTERNSHIP", "APPOINTMENT"]).optional(),
     paymentEnabled: z.boolean().optional(),
     paymentConfig: z.object({
         amount: z.number().int().positive(),

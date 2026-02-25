@@ -33,6 +33,7 @@ export class FileController {
         context,
         contactId,
         eventId,
+        eventSlug,
         fieldKey,
         visitorId,
         expiresInSeconds,
@@ -50,6 +51,7 @@ export class FileController {
         context: context as FileContext,
         contactId,
         eventId,
+        eventSlug,
         fieldKey,
         visitorId,
         // Only include expiresInSeconds if it exists, otherwise omit it

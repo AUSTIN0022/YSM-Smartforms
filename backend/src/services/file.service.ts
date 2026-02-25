@@ -12,16 +12,16 @@ export class FileService {
         private storage: FileStorageProvider
     ) {}
 
-    private resolveFolder(context: FileContext, eventId?: string) {
+    private resolveFolder(context: FileContext, eventSlug?: string) {
         switch (context) {
             case FileContext.FORM_SUBMISSION:
-            return `events/${eventId}/submissions`;
+            return `events/${eventSlug}/submissions`;
 
             case FileContext.FORM_CERTIFICATE:
-            return `events/${eventId}/certificates`;
+            return `events/${eventSlug}/certificates`;
 
             case FileContext.EVENT_ASSET:
-            return `events/${eventId}/assets`;
+            return `events/${eventSlug}/assets`;
 
             case FileContext.USER_AVATAR:
             return `users/avatars`;
@@ -41,6 +41,7 @@ export class FileService {
         context: FileContext;
         contactId?: string,
         fieldKey?: string,
+        eventSlug?: string,
         eventId?: string,
         visitorId?: string;
         expiresInSeconds?: number;
@@ -53,7 +54,7 @@ export class FileService {
             throw new BadRequestError('eventId is required for this context');
         }
 
-       const folder = this.resolveFolder(params.context, params.eventId);
+       const folder = this.resolveFolder(params.context,  params.eventSlug || params.eventId);
 
      
         const uploaded = await this.storage.upload({

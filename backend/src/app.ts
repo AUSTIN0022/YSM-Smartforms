@@ -9,6 +9,8 @@ import helmet from "helmet";
 import addRequestId from "express-request-id";
 import { paymentController } from "./container";
 
+import { serverAdapter } from './config/bull-board';
+
 dotenv.config();
 const app = express();
 
@@ -51,6 +53,9 @@ app.use(
     "/storage",
     express.static(path.resolve(process.cwd(), "storage" ))
 )
+
+// Bull queue Dashboard
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // Basic health check route
 app.get('/health', (req, res) => {

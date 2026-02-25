@@ -38,7 +38,7 @@ interface AppointmentLetterModule {
  * @param doc - The PDFKit document instance
  * @param data - Letter data
  */
-function drawAppointmentLetter(doc: typeof PDFDocument, data: AppointmentLetterData): void {
+function drawAppointmentLetter(doc: typeof PDFDocument, data: AppointmentLetterData, qrBuffer?: Buffer): void {
   const pageWidth: number = 595.28; // A4 portrait width
   const pageHeight: number = 841.89; // A4 portrait height
   const margin: number = 50;
@@ -187,6 +187,21 @@ function drawAppointmentLetter(doc: typeof PDFDocument, data: AppointmentLetterD
       align: 'center',
       width: pageWidth - (2 * margin)
     });
+
+ // QR Code
+   if(qrBuffer) {
+     const qrSize = 60;
+    const qrX = pageWidth - qrSize - 35;
+    const qrY = pageHeight - qrSize - 35;
+
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    doc.fontSize(6)
+        .font('Helvetica')
+        .fillColor('#888888')
+        .text('Scan to verify', qrX, qrY + qrSize + 2 , { width: qrSize, align: 'center' });
+   }
+
 }
 
 // ===== TEMPLATE SETTINGS =====

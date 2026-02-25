@@ -5,6 +5,7 @@ import { workerRegistry } from "./worker.registry";
 // Import workers ONLY to trigger registration
 import "./analytics.worker";
 import "./dailyAnalytics.worker";
+import "./certificate.worker";
 
 export function startWorkers() {
     logger.info("Starting background workers...");

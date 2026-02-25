@@ -3,7 +3,7 @@ import { CertificateTemplateType } from "../types/certificate-template.enum";
 import { drawAchievementCertificate } from "./achievement-certificate";
 import { drawAppointmentLetter }       from "./appointment-letter";
 import { drawCompletionCertificate }   from "./completion-certificate";
-import { drawInternshipLetter }        from "./internship-letter";
+import { drawInternshipCertificate }        from "./internship-letter";
 import { drawWorkshopCertificate }     from "./workshop-certificate";
 
 
@@ -13,7 +13,7 @@ import { drawWorkshopCertificate }     from "./workshop-certificate";
 // directly in the registry would lose the settings property, so we preserve it here.
 function asTemplate(
     fn: (doc: any, data: any) => void,
-    settings?: CertificateTemplate['settings']
+    settings?: any
 ): CertificateTemplate {
     const template = fn as CertificateTemplate;
     if (settings) template.settings = settings;
@@ -24,7 +24,7 @@ export const TEMPLATE_REGISTRY: Record<CertificateTemplateType, CertificateTempl
     [CertificateTemplateType.ACHIEVEMENT]: asTemplate(drawAchievementCertificate, drawAchievementCertificate.settings),
     [CertificateTemplateType.APPOINTMENT]: asTemplate(drawAppointmentLetter,      drawAppointmentLetter.settings),
     [CertificateTemplateType.COMPLETION]:  asTemplate(drawCompletionCertificate,  drawCompletionCertificate.settings),
-    [CertificateTemplateType.INTERNSHIP]:  asTemplate(drawInternshipLetter,       drawInternshipLetter.settings),
+    [CertificateTemplateType.INTERNSHIP]:  asTemplate(drawInternshipCertificate,  drawInternshipCertificate.settings),
     [CertificateTemplateType.WORKSHOP]:    asTemplate(drawWorkshopCertificate,    drawWorkshopCertificate.settings),
 };
 

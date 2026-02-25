@@ -2,16 +2,17 @@ import PDFDocument from 'pdfkit';
 
 // ===== TYPE DEFINITIONS =====
 
-interface InternshipLetterData {
+interface InternshipCertificateData {
   companyName?: string;
-  companyAddress?: string;
-  name: string;
-  recipientAddress?: string;
-  startDate?: string;
-  endDate?: string;
-  position?: string;
-  learningArea?: string;
-  stipend?: string;
+  companyLogoBuffer?: Buffer;       // image1.png – company logo / seal
+  signatureBuffer?: Buffer;         // image2.png – authorised signatory signature
+  date?: string;                    // Issue date
+  name?: string;                    // Intern's name
+  domain?: string;                  // Technology / domain worked on
+  startDate?: string;               // Internship start date
+  endDate?: string;                 // Internship end date  (same as issue date by default)
+  signatoryName?: string;           // Name shown below signature
+  signatoryTitle?: string;          // Title shown below name
 }
 
 interface DocumentSettings {
@@ -25,133 +26,231 @@ interface DocumentSettings {
   };
 }
 
-interface InternshipLetterModule {
-  drawInternshipLetter: typeof drawInternshipLetter;
+interface InternshipCertificateModule {
+  drawInternshipCertificate: typeof drawInternshipCertificate;
   settings: DocumentSettings;
 }
 
-// ===== INTERNSHIP LETTER DRAWING FUNCTION =====
+// ===== INTERNSHIP CERTIFICATE DRAWING FUNCTION =====
 
 /**
- * Internship Letter Template
- * @param doc - The PDFKit document instance
- * @param data - Letter data
+ * Internship Certificate Template
+ * Mirrors the layout of the INTERNSHIP_CERTIFICATE.docx produced by YSM Info Solution.
+ *
+ * @param doc        - The PDFKit document instance
+ * @param data       - Certificate data (all fields optional; sensible defaults provided)
+ * @param qrBuffer   - Optional QR-code buffer rendered at bottom-right for verification
  */
-function drawInternshipLetter(doc: typeof PDFDocument, data: InternshipLetterData): void {
-  const pageWidth: number = 595.28; // A4 portrait width
-  const pageHeight: number = 841.89; // A4 portrait height
-  const margin: number = 50;
+function drawInternshipCertificate(
+  doc: typeof PDFDocument,
+  data: InternshipCertificateData,
+  qrBuffer?: Buffer
+): void {
+  const pageWidth: number  = 595.28;  // A4 portrait width  (pt)
+  const pageHeight: number = 841.89;  // A4 portrait height (pt)
+  const margin: number     = 60;
+  const contentWidth: number = pageWidth - 2 * margin;
 
-  // ===== HEADER - Company Info =====
-  const companyName: string = data.companyName || 'Your Company Name';
-  const companyAddress: string = data.companyAddress || '123 Business Road, Tech City, 10001';
+  // ===== RESOLVE DEFAULTS =====
 
-  doc.fontSize(24)
-    .font('Helvetica-Bold')
-    .fillColor('#000000')
-    .text(companyName, margin, margin, { align: 'center' });
+  const companyName: string    = data.companyName    || 'YSM Info Solution';
+  const internName: string     = data.name           || '{Name}';
+  const domain: string         = data.domain         || '{Domain}';
+  const startDate: string      = data.startDate      || 'January 02, 2026';
+  const issueDate: string      = data.date           || new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+  const endDate: string        = data.endDate        || issueDate;
+  const signatoryName: string  = data.signatoryName  || 'Mr. Nilesh Sonawane';
+  const signatoryTitle: string = data.signatoryTitle || 'Authorized Signatory';
 
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('#555555')
-    .text(companyAddress, margin, margin + 30, { align: 'center' });
+  // ===== DECORATIVE BORDER =====
 
-  // Decorative Line
-  doc.moveTo(margin, margin + 50)
-    .lineTo(pageWidth - margin, margin + 50)
-    .lineWidth(1)
-    .strokeColor('#000000')
+  doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin)
+    .lineWidth(2)
+    .strokeColor('#1a3a6b')
     .stroke();
 
-  // ===== DATE =====
-  const currentDate: string = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  // Inner thin border
+  doc.rect(margin / 2 + 4, margin / 2 + 4, pageWidth - margin - 8, pageHeight - margin - 8)
+    .lineWidth(0.5)
+    .strokeColor('#1a3a6b')
+    .stroke();
+
+  // ===== COMPANY LOGO (top-centre, if provided) =====
+
+  let currentY: number = margin + 10;
+
+  if (data.companyLogoBuffer) {
+    const logoW = 120;
+    const logoH = 120;
+    const logoX = (pageWidth - logoW) / 2;
+    doc.image(data.companyLogoBuffer, logoX, currentY, { width: logoW, height: logoH });
+    currentY += logoH + 12;
+  }
+
+  // ===== TITLE =====
+
+  doc.fontSize(26)
+    .font('Helvetica-Bold')
+    .fillColor('#1a3a6b')
+    .text('INTERNSHIP CERTIFICATE', margin, currentY, {
+      width: contentWidth,
+      align: 'center',
+      underline: true,
+    });
+
+  currentY = doc.y + 20;
+
+  // ===== DATE LINE =====
 
   doc.fontSize(11)
     .font('Helvetica')
     .fillColor('#000000')
-    .text(`Date: ${currentDate}`, margin, margin + 70);
+    .text(issueDate, margin, currentY, {
+      width: contentWidth,
+      align: 'left',
+    });
 
-  // ===== RECIPIENT DETAILS =====
-  doc.moveDown(2);
-  doc.text('To,', margin);
-  doc.font('Helvetica-Bold').text(data.name);
-  if (data.recipientAddress) {
-    doc.font('Helvetica').text(data.recipientAddress);
+  currentY = doc.y + 20;
+
+  // ===== BODY PARAGRAPH =====
+
+  const para: string =
+    `This is to certify that ` +
+    `${internName}` +
+    ` has successfully completed an internship at ` +
+    `${companyName}` +
+    ` for the period from ` +
+    `${startDate} to ${endDate}.`;
+
+  // Render paragraph with inline bold runs using manual positioning
+  // (PDFKit doesn't support mixed bold inline; we use separate text calls)
+  doc.fontSize(12)
+    .font('Helvetica')
+    .fillColor('#000000')
+    .text('This is to certify that ', margin, currentY, {
+      continued: true,
+      width: contentWidth,
+      align: 'justify',
+    })
+    .font('Helvetica-Bold')
+    .text(`${internName}`, { continued: true })
+    .font('Helvetica')
+    .text(` has successfully completed an internship at `, { continued: true })
+    .font('Helvetica-Bold')
+    .text(`${companyName}`, { continued: true })
+    .font('Helvetica')
+    .text(` for the period from `, { continued: true })
+    .font('Helvetica-Bold')
+    .text(`${startDate} to ${endDate}`, { continued: true })
+    .font('Helvetica')
+    .text('.', { continued: false });
+
+  currentY = doc.y + 14;
+
+  // ===== PERFORMANCE PARAGRAPH =====
+
+  doc.fontSize(12)
+    .font('Helvetica')
+    .text('During the internship period, the individual was assigned to work on a project using ', margin, currentY, {
+      continued: true,
+      width: contentWidth,
+      align: 'justify',
+    })
+    .font('Helvetica-Bold')
+    .text(`${domain}`, { continued: true })
+    .font('Helvetica')
+    .text(
+      '. Throughout the tenure, strong programming skills and a self-motivated approach toward learning new technologies were demonstrated. The performance exceeded our expectations, and the individual successfully completed the learning of ',
+      { continued: true }
+    )
+    .font('Helvetica-Bold')
+    .text('project development and management practices', { continued: true })
+    .font('Helvetica')
+    .text('.', { continued: false });
+
+  currentY = doc.y + 14;
+
+  // ===== CLOSING PARAGRAPH =====
+
+  doc.fontSize(12)
+    .font('Helvetica')
+    .text(
+      'The contribution made to the organization and its success is highly appreciable. We wish the individual all the very best for future endeavors.',
+      margin,
+      currentY,
+      { width: contentWidth, align: 'justify' }
+    );
+
+  currentY = doc.y + 30;
+
+  // ===== SIGNATURE BLOCK =====
+
+  // "Regards,"
+  doc.fontSize(12)
+    .font('Helvetica')
+    .fillColor('#000000')
+    .text('Regards,', margin, currentY);
+
+  currentY = doc.y + 8;
+
+  // "For <Company>"
+  doc.font('Helvetica-Bold')
+    .text(`For ${companyName}`, margin, currentY);
+
+  currentY = doc.y + 10;
+
+  // Signature image (if provided)
+  if (data.signatureBuffer) {
+    const sigW = 75;
+    const sigH = 45;
+    doc.image(data.signatureBuffer, margin, currentY, { width: sigW, height: sigH });
+    currentY += sigH + 6;
+  } else {
+    currentY += 40; // blank space for wet signature
   }
 
-  // ===== SUBJECT =====
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold')
-    .text('Subject: Internship Offer Letter', margin, doc.y, { underline: true });
+  // Signatory title & name
+  doc.fontSize(12)
+    .font('Helvetica-Bold')
+    .text(signatoryTitle, margin, currentY);
 
-  // ===== SALUTATION =====
-  doc.moveDown(1.5);
-  doc.font('Helvetica')
-    .text(`Dear ${data.name},`, margin);
+  currentY = doc.y + 4;
 
-  // ===== BODY PARAGRAPHS =====
-  doc.moveDown(1);
-
-  const startDate: string = data.startDate || '[Start Date]';
-  const endDate: string = data.endDate || '[End Date]';
-  const position: string = data.position || 'Intern';
-
-  const para1: string = `We are pleased to offer you an internship at ${companyName} as a ${position}. Your internship is scheduled to start on ${startDate} and will conclude on ${endDate}.`;
-
-  doc.text(para1, {
-    align: 'justify',
-    width: pageWidth - (2 * margin)
-  });
-
-  doc.moveDown(1);
-  const para2: string = `During your internship, you will be working under the guidance of our team and will have the opportunity to learn about ${data.learningArea || 'various aspects of our operations'}. You will be expected to perform the duties assigned to you to the best of your ability and to comply with all company policies and procedures.`;
-
-  doc.text(para2, {
-    align: 'justify',
-    width: pageWidth - (2 * margin)
-  });
-
-  doc.moveDown(1);
-  const para3: string = data.stipend
-    ? `You will receive a stipend of ${data.stipend} per month during the internship period.`
-    : 'This is an unpaid internship position focused on educational experience.';
-
-  doc.text(para3, {
-    align: 'justify',
-    width: pageWidth - (2 * margin)
-  });
-
-  doc.moveDown(1);
-  const para4: string = 'We are confident that this internship will be a valuable learning experience for you and we look forward to having you on our team.';
-
-  doc.text(para4, {
-    align: 'justify',
-    width: pageWidth - (2 * margin)
-  });
-
-  doc.moveDown(1);
-  doc.text('Please sign and return a copy of this letter as acceptance of the internship offer.');
-
-  // ===== CLOSING =====
-  doc.moveDown(3);
-  doc.text('Sincerely,');
-
-  doc.moveDown(3);
-  doc.font('Helvetica-Bold').text('Authorised Signatory');
-  doc.font('Helvetica').text(companyName);
+  doc.fontSize(11)
+    .font('Helvetica')
+    .text(`(${signatoryName})`, margin, currentY);
 
   // ===== FOOTER =====
-  const footerY: number = pageHeight - 40;
+
+  const footerY: number = pageHeight - margin / 2 - 18;
+
   doc.fontSize(8)
+    .font('Helvetica')
     .fillColor('#888888')
-    .text(`${companyName} | ${companyAddress}`, margin, footerY, {
+    .text('Generated by Certificate Generator System', margin, footerY, {
       align: 'center',
-      width: pageWidth - (2 * margin)
+      width: contentWidth,
     });
+
+  // ===== QR CODE (bottom-right, optional) =====
+
+  if (qrBuffer) {
+    const qrSize = 60;
+    const qrX    = pageWidth  - qrSize - margin / 2 - 5;
+    const qrY    = pageHeight - qrSize - margin / 2 - 5;
+
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    doc.fontSize(6)
+      .font('Helvetica')
+      .fillColor('#888888')
+      .text('Scan to verify', qrX, qrY + qrSize + 2, {
+        width: qrSize,
+        align: 'center',
+      });
+  }
 }
 
 // ===== TEMPLATE SETTINGS =====
@@ -159,17 +258,18 @@ function drawInternshipLetter(doc: typeof PDFDocument, data: InternshipLetterDat
 const settings: DocumentSettings = {
   size: 'A4',
   layout: 'portrait',
-  margins: { top: 0, bottom: 0, left: 0, right: 0 }
+  margins: { top: 0, bottom: 0, left: 0, right: 0 },
 };
 
-// Attach settings to the function
-drawInternshipLetter.settings = settings;
+// Attach settings to the function (mirrors appointment-letter pattern)
+drawInternshipCertificate.settings = settings;
 
-const internshipLetterModule: InternshipLetterModule = {
-  drawInternshipLetter,
-  settings
+const internshipCertificateModule: InternshipCertificateModule = {
+  drawInternshipCertificate,
+  settings,
 };
 
-export default internshipLetterModule;
-export { drawInternshipLetter, settings };
-export type { InternshipLetterData, DocumentSettings };
+export default internshipCertificateModule;
+export { drawInternshipCertificate, settings };
+export type { InternshipCertificateData, DocumentSettings };
+

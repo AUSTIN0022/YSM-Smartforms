@@ -8,11 +8,6 @@ import { connectDB } from './config/db';
 // connect to Redis
 import "./config/redis";
 
-// // Optional: background jobs
-// import "./jobs/email.job";
-// import "./jobs/whatsapp.job";
-// import "./jobs/certificate.job";
-
 async function bootstrap() {
 
     try{

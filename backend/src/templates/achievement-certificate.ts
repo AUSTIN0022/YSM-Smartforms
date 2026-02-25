@@ -33,7 +33,7 @@ interface CertificateModule {
  * @param doc - The PDFKit document instance
  * @param data - Certificate data
  */
-function drawAchievementCertificate(doc: typeof PDFDocument, data: CertificateData): void {
+function drawAchievementCertificate(doc: typeof PDFDocument, data: CertificateData, qrBuffer?: Buffer): void {
   const pageWidth: number = 841.89;  // A4 landscape width
   const pageHeight: number = 595.28; // A4 landscape height
   const centerX: number = pageWidth / 2;
@@ -190,6 +190,22 @@ function drawAchievementCertificate(doc: typeof PDFDocument, data: CertificateDa
       .font('Helvetica-Bold')
       .text(data.signatoryName, pageWidth - 300, footerY + 45);
   }
+
+   // QR Code
+   if(qrBuffer) {
+     const qrSize = 60;
+    const qrX = pageWidth - qrSize - 35;
+    const qrY = pageHeight - qrSize - 35;
+
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    doc.fontSize(6)
+        .font('Helvetica')
+        .fillColor('#888888')
+        .text('Scan to verify', qrX, qrY + qrSize + 2 , { width: qrSize, align: 'center' });
+   }
+
+
 
   // ===== BADGE/MEDAL =====
   // Draw a star shape for medal
