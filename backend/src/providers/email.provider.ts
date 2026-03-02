@@ -12,7 +12,7 @@ export interface IEmailProvider {
 }
 
 
-export class EmailProvider implements IEmailProvider {
+export class EmailProvider {
 
     private transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,

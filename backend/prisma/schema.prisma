@@ -107,6 +107,7 @@ model Event {
   updatedAt       DateTime      @updatedAt
   templateType    CertificateTemplateType   @default(COMPLETION)
   date            DateTime?
+  link            String?
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   form            Form?
@@ -427,6 +428,7 @@ model MessageLog {
   eventId           String?
   type              MessageType
   template          String
+  params            Json?
   status            MessageStatus   @default(QUEUED)
   sentAt            DateTime?
   providerResponse  Json?

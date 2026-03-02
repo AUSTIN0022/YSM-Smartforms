@@ -12,20 +12,20 @@ export interface IWhatsAppProvider {
 }
 
 export class WhatsAppProvider implements IWhatsAppProvider {
-     
+
     async send<T extends MessageTemplate>(
-        template: T, 
-        destination: string, 
+        template: T,
+        destination: string,
         params: TemplateParamsMap[T]
     ): Promise<any> {
-        
-        if(!destination) {
+
+        if (!destination) {
             throw new Error("Destination is required");
         }
 
         const templateConfig = MessageTemplateResolver.getWhatsApp(template);
 
-        if(!templateConfig){
+        if (!templateConfig) {
             throw new Error(`WhatsApp template not implemented: ${template}`);
         }
 
@@ -33,12 +33,16 @@ export class WhatsAppProvider implements IWhatsAppProvider {
 
         const { templateParams, buttons } = build(params as any);
 
+        // Ensure all template params are strings as the API expects
+        const safeTemplateParams = templateParams.map(p => String(p));
+
 
         const payload = {
             apiKey: process.env.WHATSAPP_OTP_API_KEY,
             campaignName: campaignName,
             destination: destination,
-            templateParams,
+            userName: params.name,
+            templateParams: safeTemplateParams,
             source: "My Contact",
             ...(buttons && { buttons }),
             media: {},
@@ -50,11 +54,13 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         }
 
         const apiUrl = process.env.WHATSAPP_OTP_API_URL;
-        if(!apiUrl) {
+        if (!apiUrl) {
             throw new Error("WHATSAPP_OTP_API_URL is not configured")
         }
 
-        // Make API request
+        // Make API request (log payload for verification)
+        logger.debug("WhatsApp payload:", payload);
+
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -74,8 +80,8 @@ export class WhatsAppProvider implements IWhatsAppProvider {
             logger.error(`WhatsApp send failded`, responseData);
             throw new Error("WhatsApp send failed")
         }
-        
-        logger.info(`WhatsApp send success`, responseData);
+
+        logger.info(`WhatsApp send`, responseData);
         return responseData;
     }
 }

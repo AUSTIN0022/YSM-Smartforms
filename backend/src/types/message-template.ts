@@ -1,9 +1,10 @@
 import { MessageTemplate } from "./message-template.enum"
 
 export type TemplateParamsMap = {
-    
+
     [MessageTemplate.OTP_VERIFICATION_CODE]: {
         otp: string,
+        name: string,
     },
     [MessageTemplate.YSM_ONBOARDING_MESSAGE]: {
         name: string,
@@ -43,7 +44,7 @@ export type TemplateParamsMap = {
         time: string,
         link: string,
     },
-    [MessageTemplate.WORKSHOP_REMINDER_MESSAGE]:{
+    [MessageTemplate.WORKSHOP_REMINDER_MESSAGE]: {
         name: string,
         eventName: string,
         date: string,

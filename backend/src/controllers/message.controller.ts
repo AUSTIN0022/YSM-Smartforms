@@ -1,21 +1,19 @@
 import { Request, Response, NextFunction } from "express";
 import { MessageService } from "../services/message.service";
 import { BadRequestError } from "../errors/http-errors";
-import { success } from "zod";
-
 
 export class MessageController {
 
-    constructor(private messageService: MessageService) {}
+    constructor(private messageService: MessageService) { }
 
     send = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { contactId,  eventId, type, template } = req.body;
+            const { contactId, eventId, type, template } = req.body;
 
-            if(!contactId || !type || !template ) {
+            if (!contactId || !type || !template) {
                 throw new BadRequestError("contactId, type, template required");
             }
-            
+
             const result = await this.messageService.sendMessage({
                 contactId,
                 eventId,
@@ -32,7 +30,7 @@ export class MessageController {
         } catch (error) {
             next(error);
         }
-    } 
+    }
     getMessages = async (req: Request, res: Response, next: NextFunction) => {
 
         try {
@@ -41,7 +39,7 @@ export class MessageController {
             const email = req.query.email as string;
             const phone = req.query.phone as string;
 
-            const result = await this.messageService.getMessages(contactId,eventId, email, phone)
+            const result = await this.messageService.getMessages(contactId, eventId, email, phone)
 
             res.json({
                 success: true,

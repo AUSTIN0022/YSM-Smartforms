@@ -15,7 +15,7 @@ import { ConflictError, UnauthorizedError, NotFoundError } from "../errors/http-
 
 export class EventService {
 
-    constructor(private eventRepositor: IEventRepository) {}
+    constructor(private eventRepositor: IEventRepository) { }
 
     async createEvent(data: EventInput, userId: string): Promise<EventResponseDTO> {
         let slug = createSlug(data.title);
@@ -32,6 +32,7 @@ export class EventService {
             status: data.status,
             templateType: data.templateType,
             date: data.date,
+            link: data.link ?? `${process.env.DOMAIN}/event/${slug}`,
             paymentEnabled: data.paymentEnabled,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount,
@@ -47,11 +48,12 @@ export class EventService {
         const event = await this.eventRepositor.findById(id);
         if (!event) throw new NotFoundError(`No Event found`);
         if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-        
+
         const updatedEvent = await this.eventRepositor.update(id, {
             title: data.title ?? undefined,
             description: data.description ?? undefined,
             status: data.status ?? undefined,
+            link: data.link ?? `${process.env.DOMAIN}/event/${event.slug}`,
             paymentEnabled: data.paymentEnabled ?? undefined,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount ?? undefined,
@@ -63,29 +65,29 @@ export class EventService {
         return toEventResponseDTO(updatedEvent);
     }
 
-    async findbySlug(slug: string): Promise<EventResponseDTO | null > {
-        
+    async findbySlug(slug: string): Promise<EventResponseDTO | null> {
+
         const event = await this.eventRepositor.findBySlug(slug);
-        if(!event) {
+        if (!event) {
             throw new NotFoundError(`No Event found by ${slug}`)
         }
 
-        return toEventResponseDTO(event); 
+        return toEventResponseDTO(event);
     }
 
-    async findbyId(id: string): Promise<EventResponseDTO | null > {
-        
+    async findbyId(id: string): Promise<EventResponseDTO | null> {
+
         const event = await this.eventRepositor.findById(id);
-        if(!event) {
+        if (!event) {
             throw new NotFoundError(`No Event found by ${id}`)
         }
 
-        return toEventResponseDTO(event); 
+        return toEventResponseDTO(event);
     }
 
     async findByUser(userId: string): Promise<EventResponseDTO[]> {
         const events = await this.eventRepositor.findByUser(userId);
-        
+
         if (!events) return [];
 
         return events?.map(event => toEventResponseDTO(event));
@@ -97,28 +99,28 @@ export class EventService {
         if (!event) throw new NotFoundError(`No Event found`);
 
         if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-        
+
         const updatedEvent = await this.eventRepositor.publish(id);
 
-        return toEventResponseDTO(updatedEvent); 
+        return toEventResponseDTO(updatedEvent);
     }
 
-    async closeEvent(id: string, userId:string): Promise<EventResponseDTO> {
+    async closeEvent(id: string, userId: string): Promise<EventResponseDTO> {
         const event = await this.eventRepositor.findById(id);
         if (!event) throw new NotFoundError(`No Event found`);
-        
+
         if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
 
         const Updatedevent = await this.eventRepositor.close(id);
 
-        return toEventResponseDTO(Updatedevent); 
+        return toEventResponseDTO(Updatedevent);
     }
 
-    async deleteEvent(id: string, userId:string): Promise<EventResponseDTO> {
+    async deleteEvent(id: string, userId: string): Promise<EventResponseDTO> {
         try {
             const event = await this.eventRepositor.findById(id);
             if (!event) throw new NotFoundError(`No Event found`);
-        
+
             if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
 
             const Deletedevent = await this.eventRepositor.markAsDeleted(id);

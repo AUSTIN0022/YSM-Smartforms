@@ -2,9 +2,9 @@ import { MessageLog, MessageStatus, MessageType } from "@prisma/client";
 import { prisma } from "../config/db";
 
 export type MessageLogWithRelations = MessageLog & {
-    contact:{
+    contact: {
         id: string;
-        name: string  | null;
+        name: string | null;
         email: string | null;
         phone: string | null;
     } | null;
@@ -22,7 +22,8 @@ export interface IMessageRepository {
         eventId?: string;
         type: MessageType;
         template: string;
-    }): Promise  <MessageLog>;
+        params?: any;
+    }): Promise<MessageLog>;
 
     updateStatus(
         id: string,
@@ -39,7 +40,7 @@ export interface IMessageRepository {
         eventId?: string,
         email?: string,
         phone?: string,
-        options?: { limit?: number, offset?: number}
+        options?: { limit?: number, offset?: number }
     ): Promise<MessageLogWithRelations[]>
 
 }
@@ -47,13 +48,14 @@ export interface IMessageRepository {
 
 export class MessageRepository implements IMessageRepository {
 
-    async create(data: { 
-        contactId: string; 
-        eventId?: string; 
-        type: MessageType; 
-        template: string; 
+    async create(data: {
+        contactId: string;
+        eventId?: string;
+        type: MessageType;
+        template: string;
+        params?: any;
     }): Promise<MessageLog> {
-        
+
         return prisma.messageLog.create({
             data: {
                 ...data,
@@ -63,13 +65,13 @@ export class MessageRepository implements IMessageRepository {
     }
 
     async updateStatus(
-        id: string, 
-        status: MessageStatus, 
-        options?: { 
-            providerResponse?: any; 
-            errorMessage?: string; 
+        id: string,
+        status: MessageStatus,
+        options?: {
+            providerResponse?: any;
+            errorMessage?: string;
         }): Promise<MessageLog> {
-            
+
         return prisma.messageLog.update({
             where: { id },
             data: {
@@ -113,35 +115,48 @@ export class MessageRepository implements IMessageRepository {
     }
 
     async getMessages(
-        contactId?: string, 
-        eventId?: string, 
-        email?: string, 
-        phone?: string, 
-        options?: { limit?: number; offset?: number; 
+        contactId?: string,
+        eventId?: string,
+        email?: string,
+        phone?: string,
+        options?: {
+            limit?: number; offset?: number;
 
         }): Promise<MessageLogWithRelations[]> {
 
 
         const filters = [
-                ...(contactId ? [{ contactId }]: [] ),
-                ...(eventId ? [{ eventId }]: [] ),
-                ...(email ? [{ contact: { email } }]: [] ),
-                ...(phone ? [{ contact: { phone } }]: [] ),
-            ]
-        
+            ...(contactId ? [{ contactId }] : []),
+            ...(eventId ? [{ eventId }] : []),
+            ...(email ? [{ contact: { email } }] : []),
+            ...(phone ? [{ contact: { phone } }] : []),
+        ]
+
         return prisma.messageLog.findMany({
             where: {
-                 ...(contactId && { contactId } ),
-                ...(eventId && { eventId } ),
-                ...(email && { contact: { email } } ),
-                ...(phone && { contact: { phone } } ),
+                ...(contactId && { contactId }),
+                ...(eventId && { eventId }),
+                ...(email && { contact: { email } }),
+                ...(phone && { contact: { phone } }),
                 isDeleted: false
             },
-            include:{
-                contact: true,
-                event: true,
+            include: {
+                contact: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                    }
+                },
+                event: {
+                    select: {
+                        id: true,
+                        title: true,
+                    }
+                }
             },
-            orderBy: { createdAt: "desc"},
+            orderBy: { createdAt: "desc" },
             take: options?.limit ?? 20,
             skip: options?.offset ?? 0,
         });
