@@ -7,6 +7,7 @@ import fileRouter from "./file.routes";
 import analyticsRouter from "./analytics.routes";
 import paymentRouter from "./payment.routes";
 import certificateRouter from  './certificate.routes';
+import messageRouter from './message.routes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/files", fileRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/payments", paymentRouter);
 router.use("/certificates", certificateRouter);
+router.use("/messages", messageRouter);
 
 export default router;

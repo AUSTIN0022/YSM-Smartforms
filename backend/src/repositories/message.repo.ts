@@ -34,19 +34,12 @@ export interface IMessageRepository {
 
     findById(id: string): Promise<MessageLogWithRelations | null>;
 
-    findByContactId(
-        contactId: string,
-        options?: { limit?: number; offset?: number; }
-    ): Promise<MessageLogWithRelations[]>
-
-    findByEmail(
-        email: string,
-        options?: { limit?: number; offset?: number; }
-    ): Promise<MessageLogWithRelations[]>
-
-    findByPhone(
-        phone: string,
-        options?: { limit?: number; offset?: number; }
+    getMessages(
+        contactId?: string,
+        eventId?: string,
+        email?: string,
+        phone?: string,
+        options?: { limit?: number, offset?: number}
     ): Promise<MessageLogWithRelations[]>
 
 }
@@ -92,11 +85,10 @@ export class MessageRepository implements IMessageRepository {
         await prisma.messageLog.update({
             where: { id },
             data: {
-                attempts: { increment: 1 }
+                attemptCount: { increment: 1 }
             }
         })
     }
-
 
     async findById(id: string): Promise<MessageLogWithRelations | null> {
         return prisma.messageLog.findUnique({
@@ -120,55 +112,38 @@ export class MessageRepository implements IMessageRepository {
         })
     }
 
-    async findByContactId(contactId: string, options?: { limit?: number; offset?: number; }): Promise<MessageLogWithRelations[]> {
-        return prisma.messageLog.findMany({
-            where: {
-                contactId,
-                isDeleted: false
-            },
-            include: {
-                contact: true,
-                event: true,
-            },
-            orderBy: { createdAt: "desc"},
-            take: options?.limit ?? 20,
-            skip: options?.offset ?? 0
-        });
-    }
+    async getMessages(
+        contactId?: string, 
+        eventId?: string, 
+        email?: string, 
+        phone?: string, 
+        options?: { limit?: number; offset?: number; 
 
-    async findByEmail(email: string, options?: { limit?: number; offset?: number; }): Promise<MessageLogWithRelations[]> {
-        return prisma.messageLog.findMany({
-            where: {
-                contact: {
-                    email: email
-                },
-                isDeleted: false
-            },
-            include: {
-                contact: true,
-                event: true,
-            },
-            orderBy: { createdAt: "desc"},
-            take: options?.limit ?? 20,
-            skip: options?.offset ?? 0
-        });
-    }
+        }): Promise<MessageLogWithRelations[]> {
 
-    async findByPhone(phone: string, options?: { limit?: number; offset?: number; }): Promise<MessageLogWithRelations[]> {
+
+        const filters = [
+                ...(contactId ? [{ contactId }]: [] ),
+                ...(eventId ? [{ eventId }]: [] ),
+                ...(email ? [{ contact: { email } }]: [] ),
+                ...(phone ? [{ contact: { phone } }]: [] ),
+            ]
+        
         return prisma.messageLog.findMany({
             where: {
-                contact: {
-                    phone: phone
-                },
+                 ...(contactId && { contactId } ),
+                ...(eventId && { eventId } ),
+                ...(email && { contact: { email } } ),
+                ...(phone && { contact: { phone } } ),
                 isDeleted: false
             },
-            include: {
+            include:{
                 contact: true,
                 event: true,
             },
             orderBy: { createdAt: "desc"},
             take: options?.limit ?? 20,
-            skip: options?.offset ?? 0
+            skip: options?.offset ?? 0,
         });
     }
 

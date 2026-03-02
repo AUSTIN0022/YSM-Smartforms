@@ -77,6 +77,4 @@ export class contactRepository implements IContactRepository {
             }
         });
     }
-
-
 }

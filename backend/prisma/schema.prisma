@@ -428,10 +428,10 @@ model MessageLog {
   type              MessageType
   template          String
   status            MessageStatus   @default(QUEUED)
-  sentAt            DateTime
+  sentAt            DateTime?
   providerResponse  Json?
   errorMessage      String?
-  attempts          Int             @default(1)
+  attemptCount          Int             @default(1)
   isDeleted         Boolean         @default(false)
   createdAt         DateTime        @default(now())
 
@@ -442,6 +442,7 @@ model MessageLog {
   @@index([eventId])
   @@index([status])
   @@index([type])
+  @@index([createdAt])
 }
 
 

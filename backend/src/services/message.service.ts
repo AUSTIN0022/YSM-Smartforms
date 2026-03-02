@@ -1,4 +1,4 @@
-import { MessageType } from "@prisma/client";
+import { MessageStatus, MessageType } from "@prisma/client";
 import { IMessageRepository } from "../repositories/message.repo";
 import { IContactRepository } from "../repositories/contact.repo";
 import { BadRequestError, NotFoundError } from "../errors/http-errors";
@@ -38,29 +38,40 @@ export class MessageService {
         return log;
     }
 
-    async getMessageByContact(contactId: string) {
-        const contact = await this.contactRepo.findById(contactId);
-        if(!contact) {
-            throw new NotFoundError("Contact not found");
+    async updateStatus(
+        id: string,
+        status: MessageStatus,
+        options?: { providerResponse?: any, errorMessage?: any }
+    ) {
+        const message = await this.messageRepo.findById(id);
+        if(!message) {
+            throw new NotFoundError("Message not found");
         }
 
-        return this.messageRepo.findByContactId(contactId);
+        return this.messageRepo.updateStatus(id, status, options);
     }
 
-    async getMessageByEmail(email: string) {
-        if(!email) {
-            throw new BadRequestError("Email required");
+    async incrementMesssageAttempt(id: string) {
+        
+        const message = await this.messageRepo.findById(id);
+        if(!message) {
+            throw new NotFoundError("Message not found");
         }
 
-        return this.messageRepo.findByEmail(email);
+        await this.messageRepo.incrementAttempt(id);
     }
 
-    async getMessageByPhone(phone: string) {
-        if(!phone) {
-            throw new BadRequestError("Phone no required");
-        }
-
-        return this.messageRepo.findByPhone(phone);
+    async getMessages(
+            contactId?: string,
+            eventId?: string,
+            email?: string,
+            phone?: string,
+        ) {
+            return this.messageRepo.getMessages(
+                contactId, 
+                eventId, 
+                email,
+                phone
+            );
     }
-
 }
