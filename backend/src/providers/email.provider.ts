@@ -11,10 +11,7 @@ export interface IEmailProvider {
     ): Promise<any>;
 }
 
-
-export class EmailProvider {
-
-    private transporter = nodemailer.createTransport({
+const mailTransporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT),
         secure: process.env.SMTP_PORT == "465",
@@ -23,6 +20,10 @@ export class EmailProvider {
             pass: process.env.SMTP_PASS,
         }
     });
+
+export class EmailProvider {
+
+    private transporter = mailTransporter;
 
     async send<T extends MessageTemplate>(
         template: T, 
