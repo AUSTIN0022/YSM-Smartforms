@@ -8,7 +8,7 @@ import path from "path";
 import helmet from "helmet";
 import addRequestId from "express-request-id";
 import { paymentController } from "./container";
-
+import { globalErrorHandler } from "./middlewares/error.middleware";
 import { serverAdapter } from './config/bull-board';
 
 dotenv.config();
@@ -79,21 +79,9 @@ app.use((req, res) => {
     });
 });
 
-// Error handler
-app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    logger.error('Request error', {
-        requestId: req.id,
-        method: req.method,
-        url: req.url,
-        error: err.message,
-        stack: err.stack
-    });
 
-    res.status(err.status || 500).json({
-        requestId: req.id,
-        status: 'error',
-        message: err.message || 'Internal server error'
-    });
-});
+
+// Global error handler
+app.use(globalErrorHandler);
 
 export default app;
