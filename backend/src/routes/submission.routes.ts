@@ -8,6 +8,10 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { startSubmission, submissionFilter, submissionForm, } from "../validators/submission.schema";
 import { visitorSchema } from './../validators/visitor.schema';
+
+import rateLimit from "express-rate-limit";
+import RedisStore from 'rate-limit-redis';
+
 const router = Router();
 
 // --- Dependency Injection ---
@@ -22,6 +26,16 @@ const submissionService = new SubmissionService(
 );
 
 const submissionController = new SubmissionController(submissionService);
+
+
+// Rate limiter
+const submitLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, 
+    message: "Too many submissions from this IP, please try again later."
+    
+});
+
 
 // PUBLIC ROUTES (User / Visitor)
 
@@ -47,6 +61,7 @@ router.post(
 // Submit form
 router.post(
   "/:slug/submit",
+  submitLimiter,
   validate(submissionForm),
   submissionController.submitForm
 );

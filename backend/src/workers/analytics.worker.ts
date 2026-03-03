@@ -54,6 +54,8 @@ export class AnalyticsWorker {
             logger.info("Analytics snapshot completed");
         } catch(err) {
             logger.error("Analytics worker failed", err);
+        } finally {
+            await redis.del("analytics:worker:lock");
         }
     }
 
