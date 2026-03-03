@@ -7,6 +7,7 @@ import {
     SubmissionStatus,
 } from "@prisma/client";
 import { prisma } from "../config/db";
+import { ContactEventSource } from "@prisma/client";
 
 export type SubmissionWithAnswers = FormSubmission & {
     answers: SubmissionAnswer[];
@@ -229,7 +230,7 @@ export class SubmissionsRepositories implements ISubmissionRepository {
                     create: {
                         contactId: data.contactId,
                         eventId: data.eventId,
-                        source: "form_submission",
+                        source: ContactEventSource.FORM_SUBMISSION,
                     },
                     update: {}, // already mapped — nothing to change
                 });

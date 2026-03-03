@@ -75,6 +75,13 @@ enum CertificateTemplateType {
     WORKSHOP
 }
 
+enum ContactEventSource {
+    FORM_SUBMISSION
+    PAYMENT
+    MANUAL
+    OTHER
+}
+
 
 // USER & AUTH
 
@@ -253,7 +260,7 @@ model ContactEvent {
   id        String   @id @default(uuid())
   contactId String
   eventId   String
-  source    String?
+  source    ContactEventSource?
   createdAt DateTime @default(now())
 
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
