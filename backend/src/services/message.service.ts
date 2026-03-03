@@ -4,7 +4,11 @@ import { IContactRepository } from "../repositories/contact.repo";
 import { IEventRepository } from "../repositories/event.repo";
 import { BadRequestError, NotFoundError } from "../errors/http-errors";
 import { messageQueue } from "../queues/message.queue";
-import { MessageTemplate } from "../types/message-template.enum";
+import {
+    MessageTemplate,
+    CONTACT_ONLY_TEMPLATES,
+    EVENT_REQUIRED_TEMPLATES,
+} from "../types/message-template.enum";
 
 
 type SendMessageInput = {
@@ -42,16 +46,55 @@ export class MessageService {
         if (!contact) {
             throw new NotFoundError("Contact not found");
         }
+
         if (!input.template) {
             throw new BadRequestError("Template is required");
         }
+
         const template = MessageTemplate[input.template as keyof typeof MessageTemplate];
         if (!template) {
             throw new BadRequestError("Invalid template");
         }
 
-        // Resolve params
-        const event = input.eventId ? await this.eventRepo.findById(input.eventId) : null;
+        // ── Event resolution ────────────────────────────────────────────────
+        //
+        // CONTACT_ONLY templates (OTP, onboarding, birthday) never need an event.
+        // EVENT_REQUIRED templates need event context. If eventId wasn't passed in
+        // (e.g. admin is on the Contacts tab), we try to auto-resolve it from
+        // ContactEvent. If the contact is linked to exactly one event we use that.
+        // If linked to multiple, we throw and ask the caller to be explicit.
+        //
+        let resolvedEventId = input.eventId;
+
+        if (EVENT_REQUIRED_TEMPLATES.has(template) && !resolvedEventId) {
+            const linkedEventIds = await this.contactRepo.findEventIdsByContactId(input.contactId);
+
+            if (linkedEventIds.length === 0) {
+                throw new BadRequestError(
+                    `Template "${template}" requires event context, but this contact is not linked to any event.`
+                );
+            }
+
+            if (linkedEventIds.length > 1) {
+                throw new BadRequestError(
+                    `Template "${template}" requires event context, but this contact is linked to ${linkedEventIds.length} events. ` +
+                    `Please supply an explicit eventId. Linked events: [${linkedEventIds.join(", ")}]`
+                );
+            }
+
+            // Exactly one event — safe to auto-resolve
+            resolvedEventId = linkedEventIds[0];
+        }
+
+        if (CONTACT_ONLY_TEMPLATES.has(template) && resolvedEventId) {
+            // Silently ignore any eventId passed for contact-only templates;
+            // it's harmless but we don't want to store a misleading FK.
+            resolvedEventId = undefined;
+        }
+        // ────────────────────────────────────────────────────────────────────
+
+        // Resolve params from contact + event
+        const event = resolvedEventId ? await this.eventRepo.findById(resolvedEventId) : null;
 
         const resolvedParams: any = {
             name: contact.name || "Participant",
@@ -69,7 +112,7 @@ export class MessageService {
 
         const mergedParams: any = { ...resolvedParams, ...input.params };
 
-        // Validation: Ensure all required params are present and non-empty
+        // Validate all required fields are present and non-empty
         const requiredFields = TEMPLATE_REQUIRED_FIELDS[template];
         if (requiredFields) {
             const missingOrEmptyFields = requiredFields.filter(field => {
@@ -78,19 +121,20 @@ export class MessageService {
             });
 
             if (missingOrEmptyFields.length > 0) {
-                throw new BadRequestError(`Missing or empty required parameters for template ${template}: ${missingOrEmptyFields.join(", ")}`);
+                throw new BadRequestError(
+                    `Missing or empty required parameters for template "${template}": ${missingOrEmptyFields.join(", ")}`
+                );
             }
         }
 
         const log = await this.messageRepo.create({
             contactId: input.contactId,
-            ...(input.eventId && { eventId: input.eventId }),
+            ...(resolvedEventId && { eventId: resolvedEventId }),
             type: input.type,
             template: input.template,
             params: mergedParams
         });
 
-        // enqueue job
         await messageQueue.add(
             "send-message",
             { messageLogId: log.id },
@@ -114,7 +158,6 @@ export class MessageService {
     }
 
     async incrementMesssageAttempt(id: string) {
-
         const message = await this.messageRepo.findById(id);
         if (!message) {
             throw new NotFoundError("Message not found");

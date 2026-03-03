@@ -25,6 +25,12 @@ export interface IContactRepository {
         phone?: string
     ): Promise<Contact | null>;
 
+    /**
+     * Returns all event IDs linked to a contact via ContactEvent.
+     * Used to auto-resolve eventId when sending messages from the Contacts tab.
+     */
+    findEventIdsByContactId(contactId: string): Promise<string[]>;
+
 }
 
 
@@ -77,4 +83,14 @@ export class contactRepository implements IContactRepository {
             }
         });
     }
+
+    async findEventIdsByContactId(contactId: string): Promise<string[]> {
+        const rows = await prisma.contactEvent.findMany({
+            where: { contactId },
+            select: { eventId: true },
+        });
+        return rows.map((r) => r.eventId);
+    }
+
+    
 }

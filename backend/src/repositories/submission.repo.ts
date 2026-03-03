@@ -216,6 +216,25 @@ export class SubmissionsRepositories implements ISubmissionRepository {
                 })),
             });
 
+            // Upsert the Contact ↔ Event mapping so the Contacts tab
+            // can later resolve which events a contact belongs to.
+            if (data.contactId) {
+                await tx.contactEvent.upsert({
+                    where: {
+                        contactId_eventId: {
+                            contactId: data.contactId,
+                            eventId: data.eventId,
+                        },
+                    },
+                    create: {
+                        contactId: data.contactId,
+                        eventId: data.eventId,
+                        source: "form_submission",
+                    },
+                    update: {}, // already mapped — nothing to change
+                });
+            }
+
             await tx.visitSession.updateMany({
                 where: {
                     visitorId: data.visitorId,

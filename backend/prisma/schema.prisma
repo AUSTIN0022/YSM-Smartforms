@@ -259,6 +259,7 @@ model ContactEvent {
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  @@unique([contactId, eventId])
   @@index([contactId])
   @@index([eventId])
 

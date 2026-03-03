@@ -205,6 +205,8 @@ export class SubmissionService {
     
     // - Handle contact
     let contactId: string | undefined;
+
+    // TODO: Refactor the code and use the contact repository instead of submission repository for contact related operations
     
     if (contact?.email || contact?.phone) {
         const existing = await this.submissionRepo.findContactByEmailOrPhone(contact.email, contact.phone);
@@ -219,6 +221,8 @@ export class SubmissionService {
             contactId = created.id;
         }
     }
+
+
     // - Create full submission
     const submission = await this.submissionRepo.createFullSubmission({
         formId: form.id,
