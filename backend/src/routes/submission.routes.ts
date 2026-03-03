@@ -47,6 +47,7 @@ router.post(
 // Submit form
 router.post(
   "/:slug/submit",
+  validate(submissionForm),
   submissionController.submitForm
 );
 
