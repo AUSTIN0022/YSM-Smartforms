@@ -200,24 +200,26 @@ export class SubmissionService {
         verifyAnswers
     );
     
-    // - Upsert visitor
-    const dbVisitor = await this.submissionRepo.upsertVisitor(visitor);
-    
-    // - Handle contact
+    // - Upsert visitor + contact lookup in parallel (neither depends on the other)
+    const [dbVisitor, existingContact] = await Promise.all([
+        this.submissionRepo.upsertVisitor(visitor),
+        (contact?.email || contact?.phone)
+            ? this.submissionRepo.findContactByEmailOrPhone(contact.email, contact.phone)
+            : Promise.resolve(null),
+    ]);
+
+    // - Resolve contactId: reuse existing or create new
     let contactId: string | undefined;
 
-    // TODO: Refactor the code and use the contact repository instead of submission repository for contact related operations
-    
     if (contact?.email || contact?.phone) {
-        const existing = await this.submissionRepo.findContactByEmailOrPhone(contact.email, contact.phone);
-        if(existing) {
-            contactId = existing.id;
+        if (existingContact) {
+            contactId = existingContact.id;
         } else {
             const created = await this.submissionRepo.createContact({
                 ...(contact.name && { name: contact.name }),
                 ...(contact.email && { email: contact.email }),
-                ...(contact.phone && { phone: contact.phone })
-            } );
+                ...(contact.phone && { phone: contact.phone }),
+            });
             contactId = created.id;
         }
     }
