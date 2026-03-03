@@ -1,21 +1,12 @@
 import { Router } from "express";
-import { FileRepository } from "../repositories/file.repo";
-import { getStorageProvider } from "../providers/storage.provider";
-import { FileService } from "../services/file.service";
-import { FileController } from "../controllers/file.controller";
 import { multerMemoryUpload } from "../middlewares/multer.middleware";
 import { validateFile } from "../middlewares/file-validate.middleware";
 import { compressImage } from "../middlewares/image-compress.middleware";
+import { fileController } from "../container";
 
 
 const router = Router();
 
-
-// DI
-const fileRepo = new FileRepository();
-const storage = getStorageProvider();
-const fileService = new FileService(fileRepo, storage);
-const controller = new FileController(fileService);
 
 // POST /api/files/upload
 router.post(
@@ -23,19 +14,19 @@ router.post(
     multerMemoryUpload.single("file"),
     validateFile({ category: "any", maxSizeMB: 10 }),
     compressImage(false),   // later if needed
-    controller.upload
+    fileController.upload
 );
 
 // get files by contact
-router.get("/contact/:contactId", controller.getByContactId);
+router.get("/contact/:contactId", fileController.getByContactId);
 
 // get files by event
-router.get("/event/:eventId", controller.getByEventId);
+router.get("/event/:eventId", fileController.getByEventId);
 
 // get by file ID
-router.get("/:id", controller.getById);
+router.get("/:id", fileController.getById);
 
 // delete file
-router.delete("/:id", controller.deleteById);
+router.delete("/:id", fileController.deleteById);
 
 export default router;

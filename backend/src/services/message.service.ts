@@ -157,7 +157,7 @@ export class MessageService {
         return this.messageRepo.updateStatus(id, status, options);
     }
 
-    async incrementMesssageAttempt(id: string) {
+    async incrementMessageAttempt(id: string) {
         const message = await this.messageRepo.findById(id);
         if (!message) {
             throw new NotFoundError("Message not found");

@@ -48,7 +48,7 @@ export interface IPaymentRepository {
         limit: number;
         cursor?: string;
         status?: PaymentStatus;
-    }): Promise<{}>;
+    }): Promise<{ items: Payment[]; nextCursor: string | null }>;
 }
 
 
@@ -167,30 +167,27 @@ export class PaymentRepository implements IPaymentRepository {
         limit: number;
         cursor?: string;
         status?: PaymentStatus;
-    }): Promise<{}> {
-        return prisma.payment.findMany({
+    }): Promise<{ items: Payment[]; nextCursor: string | null }> {
+        const items = await prisma.payment.findMany({
             where: {
                 eventId: params.eventId,
                 ...(params.status && { status: params.status })
             },
             orderBy: { createdAt: "desc" },
-            take: params.limit,
+            take: params.limit + 1,
             ...(params.cursor && {
                 cursor: { id: params.cursor },
                 skip: 1
             }),
-            select: {
-                id: true,
-                submissionId: true,
-                amount: true,
-                status: true,
-                failureReason: true,
-                createdAt: true,
-                paidAt: true,
-                razorpayPaymentId: true,
-                razorpayOrderId: true,
-            }
-        })
+        });
+
+        let nextCursor: string | null = null;
+        if (items.length > params.limit) {
+            const nextItem = items.pop();
+            nextCursor = nextItem!.id;
+        }
+
+        return { items, nextCursor };
     }
 
     async updateForRetry(data: {

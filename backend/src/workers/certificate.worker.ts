@@ -42,22 +42,22 @@ export class CertifcateWorker {
         });
 
         worker.on('failed', (job, err) => {
-            logger.error(`Certificate generation faild`, {
+            logger.error(`Certificate generation failed`, {
                 jobId: job?.id,
                 certficateId: job?.data?.certificateId,
                 error: err.message
             });
         });
 
-        logger.info('Certificate worker started (BullMQ processeor)');
+        logger.info('Certificate worker started (BullMQ processor)');
     }
 }
 
 
-const storgageProvider = getStorageProvider();
-const certRepisitory = new CertificateRepository();
-const fileService = new FileService(new FileRepository(), storgageProvider);
-const workerService  =  new CertificateWorkerService(certRepisitory, fileService, new CertificateGeneratorService());
+const storageProvider = getStorageProvider();
+const certificateRepo = new CertificateRepository();
+const fileService = new FileService(new FileRepository(), storageProvider);
+const workerService  =  new CertificateWorkerService(certificateRepo, fileService, new CertificateGeneratorService());
 const certifcateWorker = new CertifcateWorker(workerService);
 
 workerRegistry.register(certifcateWorker)

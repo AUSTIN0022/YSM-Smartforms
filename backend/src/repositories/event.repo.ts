@@ -1,13 +1,22 @@
-import { Event, EventStatus, PaymentConfig } from "@prisma/client";
+import { Event, EventStatus, PaymentConfig, CertificateTemplateType } from "@prisma/client";
 import { prisma } from "../config/db";
 
 export type EventWithConfig = Event & {
     paymentConfig: PaymentConfig | null;
 };
 
+// event.repo.ts
+export type CreateEventInput = Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted'> & {
+    paymentConfig?: {
+        amount: number;
+        currency: string;
+        description?: string | null;
+    } | null;
+};
+
 export interface IEventRepository {
-    createEvent(data: any ): Promise<EventWithConfig>;
-    update( id: string, data: any, config?: Partial<PaymentConfig>): Promise<EventWithConfig>;
+    createEvent(data: CreateEventInput): Promise<EventWithConfig>;
+    update(id: string, data: any): Promise<EventWithConfig>;
     findBySlug(slug: string): Promise<EventWithConfig | null>;
     findById(id: string): Promise<EventWithConfig | null>;
     findByUser(userId: string): Promise<EventWithConfig[]>;
@@ -15,15 +24,14 @@ export interface IEventRepository {
     close(id: string): Promise<EventWithConfig>;
     markAsDeleted(id: string): Promise<EventWithConfig>;
     findActiveEvents(): Promise<EventWithConfig[]>;
-    getEventPaymentConfig(eventId: string): Promise<PaymentConfig | null>
+    getEventPaymentConfig(eventId: string): Promise<PaymentConfig | null>;
 }
 
 export class EventRepository implements IEventRepository {
 
-    async createEvent(data: any ): Promise<EventWithConfig> {
-        
+    async createEvent(data: CreateEventInput): Promise<EventWithConfig> {
         const { paymentConfig, ...eventData } = data;
-        
+
         return prisma.event.create({
             data: {
                 ...eventData,
@@ -31,7 +39,7 @@ export class EventRepository implements IEventRepository {
                     paymentConfig: { create: paymentConfig }
                 })
             },
-            include: { paymentConfig: true } 
+            include: { paymentConfig: true }
         }) as Promise<EventWithConfig>;
     }
 
@@ -51,24 +59,30 @@ export class EventRepository implements IEventRepository {
 
     async findByUser(userId: string): Promise<EventWithConfig[]> {
         return prisma.event.findMany({
-            where: { userId }, 
+            where: { userId },
             include: { paymentConfig: true }
         }) as Promise<EventWithConfig[]>;
     }
 
-    async update( id: string, data: any, config?: Partial<PaymentConfig> ) : Promise<EventWithConfig> {
+    async update(id: string, data: any): Promise<EventWithConfig> {
+        const { paymentConfig, ...eventData } = data;
 
         return prisma.event.update({
             where: { id },
             data: {
-                ...data,
-                paymentConfig: config ? {
-                    upsert: {
-                        create: { amount: config.amount || 0, currency: config.currency || "INR", description: config.description },
-                        update: config
+                ...eventData,
+                ...(paymentConfig && {
+                    paymentConfig: {
+                        upsert: {
+                            create: {
+                                amount: paymentConfig.amount ?? 0,
+                                currency: paymentConfig.currency ?? "INR",
+                                description: paymentConfig.description,
+                            },
+                            update: paymentConfig,
+                        }
                     }
-                } : undefined
-                
+                })
             },
             include: { paymentConfig: true }
         }) as Promise<EventWithConfig>;
@@ -95,7 +109,7 @@ export class EventRepository implements IEventRepository {
             where: { id },
             data: { isDeleted: true },
             include: { paymentConfig: true }
-        })
+        }) as Promise<EventWithConfig>;
     }
 
     async findActiveEvents(): Promise<EventWithConfig[]> {
@@ -106,7 +120,7 @@ export class EventRepository implements IEventRepository {
     }
 
     async getEventPaymentConfig(eventId: string): Promise<PaymentConfig | null> {
-        return await prisma.paymentConfig.findUnique({
+        return prisma.paymentConfig.findUnique({
             where: { eventId }
         });
     }

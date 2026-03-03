@@ -1,21 +1,13 @@
 import { IEventRepository } from "../repositories/event.repo";
 import { EventInput, EventUpdate } from "../validators/event.schema";
-
-import { createSlug, generateRandomString } from '../utils/slug'
-
-// dtos
+import { createSlug, generateRandomString } from "../utils/slug";
 import { EventResponseDTO } from "../dtos/event/event-response.dto";
-
-// mapper
 import { toEventResponseDTO } from "../mappers/event.mapper";
-
-// error handler
-import { ConflictError, UnauthorizedError, NotFoundError } from "../errors/http-errors";
-
+import { ForbiddenError, NotFoundError } from "../errors/http-errors";
 
 export class EventService {
 
-    constructor(private eventRepositor: IEventRepository) { }
+    constructor(private eventRepositor: IEventRepository) {}
 
     async createEvent(data: EventInput, userId: string): Promise<EventResponseDTO> {
         let slug = createSlug(data.title);
@@ -30,15 +22,15 @@ export class EventService {
             slug,
             description: data.description ?? undefined,
             status: data.status,
-            templateType: data.templateType,
-            date: data.date,
+            ...(data.templateType && { templateType: data.templateType }),
+            date: data.date ? new Date(data.date) : null,
             link: data.link ?? `${process.env.DOMAIN}/event/${slug}`,
             paymentEnabled: data.paymentEnabled,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount,
                 currency: data.paymentConfig.currency,
-                description: data.paymentConfig.description ?? undefined
-            } : undefined
+                description: data.paymentConfig.description ?? null
+            } : null
         });
 
         return toEventResponseDTO(event);
@@ -47,7 +39,7 @@ export class EventService {
     async updateEvent(id: string, userId: string, data: EventUpdate): Promise<EventResponseDTO> {
         const event = await this.eventRepositor.findById(id);
         if (!event) throw new NotFoundError(`No Event found`);
-        if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
+        if (event.userId !== userId) throw new ForbiddenError("Unauthorized access");
 
         const updatedEvent = await this.eventRepositor.update(id, {
             title: data.title ?? undefined,
@@ -66,68 +58,41 @@ export class EventService {
     }
 
     async findbySlug(slug: string): Promise<EventResponseDTO | null> {
-
         const event = await this.eventRepositor.findBySlug(slug);
-        if (!event) {
-            throw new NotFoundError(`No Event found by ${slug}`)
-        }
-
+        if (!event) throw new NotFoundError(`No Event found by ${slug}`);
         return toEventResponseDTO(event);
     }
 
     async findbyId(id: string): Promise<EventResponseDTO | null> {
-
         const event = await this.eventRepositor.findById(id);
-        if (!event) {
-            throw new NotFoundError(`No Event found by ${id}`)
-        }
-
+        if (!event) throw new NotFoundError(`No Event found by ${id}`);
         return toEventResponseDTO(event);
     }
 
     async findByUser(userId: string): Promise<EventResponseDTO[]> {
         const events = await this.eventRepositor.findByUser(userId);
-
         if (!events) return [];
-
-        return events?.map(event => toEventResponseDTO(event));
+        return events.map(toEventResponseDTO);
     }
-
 
     async publishEvent(id: string, userId: string): Promise<EventResponseDTO> {
         const event = await this.eventRepositor.findById(id);
-        if (!event) throw new NotFoundError(`No Event found`);
-
-        if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-
-        const updatedEvent = await this.eventRepositor.publish(id);
-
-        return toEventResponseDTO(updatedEvent);
+        if (!event) throw new NotFoundError("No Event found");
+        if (event.userId !== userId) throw new ForbiddenError("You are not authorized to publish this event");
+        return toEventResponseDTO(await this.eventRepositor.publish(id));
     }
 
     async closeEvent(id: string, userId: string): Promise<EventResponseDTO> {
         const event = await this.eventRepositor.findById(id);
-        if (!event) throw new NotFoundError(`No Event found`);
-
-        if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-
-        const Updatedevent = await this.eventRepositor.close(id);
-
-        return toEventResponseDTO(Updatedevent);
+        if (!event) throw new NotFoundError("No Event found");
+        if (event.userId !== userId) throw new ForbiddenError("You are not authorized to close this event");
+        return toEventResponseDTO(await this.eventRepositor.close(id));
     }
 
     async deleteEvent(id: string, userId: string): Promise<EventResponseDTO> {
-        try {
-            const event = await this.eventRepositor.findById(id);
-            if (!event) throw new NotFoundError(`No Event found`);
-
-            if (event.userId !== userId) throw new UnauthorizedError("Unauthorized access");
-
-            const Deletedevent = await this.eventRepositor.markAsDeleted(id);
-
-            return toEventResponseDTO(Deletedevent);
-        } catch (error) {
-            throw error;
-        }
+        const event = await this.eventRepositor.findById(id);
+        if (!event) throw new NotFoundError("No Event found");
+        if (event.userId !== userId) throw new ForbiddenError("You are not authorized to delete this event");
+        return toEventResponseDTO(await this.eventRepositor.markAsDeleted(id));
     }
 }

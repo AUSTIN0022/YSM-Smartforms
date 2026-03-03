@@ -4,29 +4,27 @@ import { redis } from "../config/redis";
 import logger from "../config/logger";
 import { NotFoundError } from "../errors/http-errors";
 import pLimit from "p-limit";
-import { prisma } from "../config/db";
-
 
 export class AnalyticsService {
 
     constructor(
         private analyticsRepo: IAnalyticsRepository,
         private eventRepo: IEventRepository,
-    ) {}
+    ) { }
     /** 
      * Background job/corn
      * reads Redis counters & persists them to DB
      * should run every X minutes
     */
     async snapshotEvent(eventId: string): Promise<void> {
-        
+
         const visitsKey = `analytics:event:${eventId}:visits:delta`;
         const startedKey = `analytics:event:${eventId}:started:delta`;
         const submittedKey = `analytics:event:${eventId}:submitted:delta`;
 
         const [visits, started, submitted] = await redis.mget(
-            visitsKey,  
-            startedKey, 
+            visitsKey,
+            startedKey,
             submittedKey
         );
 
@@ -34,9 +32,9 @@ export class AnalyticsService {
         const startedDelta = Number(started || 0);
         const submittedDelta = Number(submitted || 0);
 
-        if(!visitsDelta && !startedDelta && !submittedDelta) {
+        if (!visitsDelta && !startedDelta && !submittedDelta) {
             return;
-        } 
+        }
 
         try {
             await this.analyticsRepo.incrementEventTotals({
@@ -48,7 +46,7 @@ export class AnalyticsService {
 
             await redis.del(visitsKey, startedKey, submittedKey);
 
-        } catch(err) {
+        } catch (err) {
             logger.error("Snapshot failed", { eventId, err });
             throw err;
         }
@@ -56,11 +54,11 @@ export class AnalyticsService {
     }
     // snapshot all active events
     async snapshotAllEvents(): Promise<void> {
-        const events =  await this.eventRepo.findActiveEvents();
-        
+        const events = await this.eventRepo.findActiveEvents();
+
         const limit = pLimit(5);
         await Promise.allSettled(
-            events.map( e => limit(() => this.snapshotEvent(e.id) ))
+            events.map(e => limit(() => this.snapshotEvent(e.id)))
         )
     }
 
@@ -68,7 +66,7 @@ export class AnalyticsService {
     async getEventAnalytics(eventId: string) {
         // check if event exist
         const event = await this.eventRepo.findById(eventId);
-        if(!event) throw new NotFoundError("event not found");
+        if (!event) throw new NotFoundError("event not found");
 
         const dbAnalytics = await this.analyticsRepo.getEventAnalytics(eventId);
 
@@ -76,7 +74,7 @@ export class AnalyticsService {
         const startedKey = `analytics:event:${eventId}:started:delta`;
         const submittedKey = `analytics:event:${eventId}:submitted:delta`;
 
-        const [visitsDelta, startedDelta, submittedDelta ] = await redis.mget(visitsKey, startedKey, submittedKey);
+        const [visitsDelta, startedDelta, submittedDelta] = await redis.mget(visitsKey, startedKey, submittedKey);
 
         const visits = (dbAnalytics?.totalVisits || 0) + Number(visitsDelta || 0);
         const started = (dbAnalytics?.totalStarted || 0) + Number(startedDelta || 0);
@@ -89,10 +87,10 @@ export class AnalyticsService {
             totalVisits: visits,
             totalStarted: started,
             totalSubmitted: submitted,
-            conversionRate, 
+            conversionRate,
             lastUpdated: dbAnalytics?.lastUpdated ?? null,
         }
-        
+
     }
 
     // Admin: dashboard global stats
@@ -101,17 +99,10 @@ export class AnalyticsService {
     }
 
     async getEventAnalyticsRange(eventId: string, days: number) {
-
         const fromDate = new Date();
         fromDate.setDate(fromDate.getDate() - days);
 
-        const rows = await prisma.eventAnalyticsDaily.findMany({
-            where: {
-                eventId, 
-                date: { gte: fromDate },
-            },
-            orderBy: { date: "asc" },
-        });
+        const rows = await this.analyticsRepo.getDailyAnalytics(eventId, fromDate);
 
         const totals = rows.reduce(
             (acc, r) => {
@@ -126,8 +117,8 @@ export class AnalyticsService {
         return {
             ...totals,
             conversionRate: totals.started === 0
-                    ? 0
-                    : (totals.submitted / totals.started) * 100,
+                ? 0
+                : (totals.submitted / totals.started) * 100,
             timeline: rows,
         };
     }

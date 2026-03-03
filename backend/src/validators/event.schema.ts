@@ -7,7 +7,7 @@ export const createEventSchema = z.object({
         status: z.enum(['DRAFT', 'ACTIVE'],),
         date: z.string().optional(),
         link: z.string().optional(),
-        templateType: z.enum(["COMPLETION", "ACHIEVEMENT", "WORKSHOP", "INTERNSHIP", "APPOINTMENT"]).optional(),
+        templateType: z.enum(["COMPLETION", "ACHIEVEMENT", "WORKSHOP", "INTERNSHIP", "APPOINTMENT"]),
         paymentEnabled: z.boolean(),
         paymentConfig: z.object({
             amount: z.number().int().positive(),

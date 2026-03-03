@@ -16,7 +16,7 @@ export type SubmissionWithAnswers = FormSubmission & {
 
 
 export interface ISubmissionRepository {
-    
+
     // visitor & session
     upsertVisitor(data: {
         uuid: string;
@@ -34,26 +34,6 @@ export interface ISubmissionRepository {
         id: string,
         status: SubmissionStatus
     ): Promise<VisitSession>;
-
-    // Contact
-
-    findContactByEmailOrPhone(
-        email?: string,
-        phone?: string
-    ): Promise<Contact | null>;
-
-    createContact(data: {
-        name?: string;
-        email?: string;
-        phone?: string;
-    }): Promise<Contact>;
-    
-    updateContact(data: {
-        id:string
-        name?: string;
-        email?: string;
-        phone?: string;
-    }): Promise<Contact>;
 
     createFullSubmission(data: {
         formId: string;
@@ -75,7 +55,7 @@ export interface ISubmissionRepository {
 
     // Admin Reads
 
-    findSubmissionById( id: string ): Promise<SubmissionWithAnswers | null>;
+    findSubmissionById(id: string): Promise<SubmissionWithAnswers | null>;
     findSubmissionsByEvent(
         eventId: string,
         options?: {
@@ -83,9 +63,9 @@ export interface ISubmissionRepository {
             limit?: number;
             offset?: number;
             formDate?: Date;
-            toDate?: Date; 
+            toDate?: Date;
         }
-    ): Promise<SubmissionWithAnswers[]>;
+    ): Promise<{ items: SubmissionWithAnswers[], totalCount: number }>;
 
     attachFilesToContact(params: {
         fileIds: string[];
@@ -94,13 +74,13 @@ export interface ISubmissionRepository {
 
 }
 
-export class SubmissionsRepositories implements ISubmissionRepository {
+export class SubmissionsRepository implements ISubmissionRepository {
 
     // visitor & session
     async upsertVisitor(data: { uuid: string; ipAddress?: string; userAgent?: string; }): Promise<Visitor> {
-        
+
         return prisma.visitor.upsert({
-            where: { uuid: data.uuid},
+            where: { uuid: data.uuid },
             create: {
                 uuid: data.uuid,
                 ipAddress: data.ipAddress ?? null,
@@ -146,51 +126,20 @@ export class SubmissionsRepositories implements ISubmissionRepository {
             data: { status: data.status },
         });
     }
-    
+
 
 
     async updateSessionStatus(id: string, status: SubmissionStatus): Promise<VisitSession> {
         return prisma.visitSession.update({
-            where: { id: id},
-            data:{
+            where: { id: id },
+            data: {
                 status: status
             }
         });
     }
 
-    // Contact
-    async findContactByEmailOrPhone(email?: string, phone?: string): Promise<Contact | null> {
-        if( !email && !phone) return null;
-        
-        return prisma.contact.findFirst({
-            where: {
-                OR: [
-                    ...(email ? [{ email }]: [] ),
-                    ...(phone ? [{ phone }]: [] )
-                ]
-            }
-        });
-    }
-
-    async createContact(data: { name?: string; email?: string; phone?: string; }): Promise<Contact> {
-        return prisma.contact.create({
-            data
-        });
-    }
-
-    async updateContact(data: {id:string, name?: string; email?: string; phone?: string; }): Promise<Contact> {
-        return prisma.contact.update({
-            where: { id: data.id },
-            data: {
-                name: data.name ?? null,
-                email: data.email ?? null,
-                phone: data.phone ?? null
-            }
-        });
-    }
-
     async createFullSubmission(data: { formId: string; eventId: string; visitorId: string; contactId?: string; status: SubmissionStatus; answers: { fieldId: string; fieldKey: string; valueText?: string; valueNumber?: number; valueBoolean?: boolean; valueDate?: Date; valueJson?: any; fileUrl?: string; }[]; }): Promise<SubmissionWithAnswers> {
-        
+
         return prisma.$transaction(async (tx) => {
 
             const submission = await tx.formSubmission.create({
@@ -252,46 +201,52 @@ export class SubmissionsRepositories implements ISubmissionRepository {
             return fullSubmission as SubmissionWithAnswers;
 
         })
-    }    
+    }
 
 
     // admin reads
 
     async findSubmissionById(id: string): Promise<SubmissionWithAnswers | null> {
         return prisma.formSubmission.findFirst({
-            where: { id: id},
-            include: { 
-                answers: { orderBy: { fieldKey: "asc"} },
-                contact: true,
-             }
-        })
-    };
-
-    async findSubmissionsByEvent(eventId: string, options?: { status?: SubmissionStatus; limit?: number; offset?: number; formDate?: Date; toDate?: Date; }): Promise<SubmissionWithAnswers[]> {
-        return prisma.formSubmission.findMany({
-            where: { 
-                eventId,
-                isDeleted: false,
-                ...(options?.status && { status: options.status }),
-                ...(options?.formDate || options?.toDate
-                    ? {
-                        submittedAt: {
-                            ...(options.formDate && { gte: options.formDate }),
-                            ...(options.toDate && { lte: options.toDate}),
-                        }
-                    }: {}
-                 ),
-            },
-            ...(options?.limit && { take: options.limit }),
-            ...(options?.offset && { skip: options.offset }),
-            
+            where: { id: id },
             include: {
-                answers: {
-                    orderBy: { fieldKey: "asc" }
-                },
+                answers: { orderBy: { fieldKey: "asc" } },
                 contact: true,
             }
         })
+    };
+
+    async findSubmissionsByEvent(eventId: string, options?: { status?: SubmissionStatus; limit?: number; offset?: number; fromDate?: Date; toDate?: Date; }): Promise<{ items: SubmissionWithAnswers[], totalCount: number }> {
+        const where = {
+            eventId,
+            isDeleted: false,
+            ...(options?.status && { status: options.status }),
+            ...(options?.fromDate || options?.toDate
+                ? {
+                    submittedAt: {
+                        ...(options.fromDate && { gte: options.fromDate }),
+                        ...(options.toDate && { lte: options.toDate }),
+                    }
+                } : {}
+            ),
+        };
+
+        const [items, totalCount] = await prisma.$transaction([
+            prisma.formSubmission.findMany({
+                where,
+                ...(options?.limit && { take: options.limit }),
+                ...(options?.offset && { skip: options.offset }),
+                include: {
+                    answers: {
+                        orderBy: { fieldKey: "asc" }
+                    },
+                    contact: true,
+                }
+            }),
+            prisma.formSubmission.count({ where })
+        ]);
+
+        return { items: items as SubmissionWithAnswers[], totalCount };
     }
 
     async attachFilesToContact(params: {

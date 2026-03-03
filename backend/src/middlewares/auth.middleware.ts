@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
 import logger from "../config/logger";
+import { UnauthorizedError } from "../errors/http-errors";
 
 export const authMiddleware = async (
   req: Request,
@@ -10,12 +11,12 @@ export const authMiddleware = async (
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new Error("Unauthorized");
+      throw new UnauthorizedError("Unauthorized");
     }
 
     const token = authHeader.split(" ")[1];
     if (!token) {
-      throw new Error("Unauthorized");
+      throw new UnauthorizedError("Unauthorized");
     }
 
     // JWT signature verification is sufficient for identity —

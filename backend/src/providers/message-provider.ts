@@ -2,15 +2,17 @@ import { MessageType } from "@prisma/client";
 import { EmailProvider } from "./email.provider";
 import { WhatsAppProvider } from "./whatsapp.provider";
 
+const emailProvider = new EmailProvider();
+const whatsappProvider = new WhatsAppProvider();
 
 export class MessageProvider {
     static getProvider(type: MessageType) {
-        switch(type) {
+        switch (type) {
             case "EMAIL":
-                return new EmailProvider();
+                return emailProvider;
             case "WHATSAPP":
-                return new WhatsAppProvider();
-                
+                return whatsappProvider;
+
             default:
                 throw new Error(`Unsupported message type: ${type}`);
         }

@@ -4,7 +4,33 @@ import { RazorpayProvider } from "../providers/razorpay.provider";
 import { IEventRepository } from "../repositories/event.repo";
 import { IPaymentRepository } from "../repositories/payment.repo";
 import { ISubmissionRepository } from "../repositories/submission.repo";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, Payment } from "@prisma/client";
+
+// ── Return types ───────────────────────────────────────────────────────────────
+
+export type PaymentListResult = {
+    items: Payment[];
+    nextCursor: string | null;
+};
+
+export type PaymentDetailResult = {
+    payment: {
+        id: string;
+        eventId: string;
+        submissionId: string;
+        amount: number;
+        status: PaymentStatus;
+        razorpayPaymentId: string | null;
+        razorpayStatus: string | null;
+        failureReason: string | null;
+        attempts: number;
+        paidAt: Date | null;
+        createdAt: Date;
+        webhookConfirmed: boolean;
+    };
+    eventId: string;
+    contactId: string | null;
+};
 
 
 export class PaymentService {
@@ -305,7 +331,7 @@ export class PaymentService {
     limit: number;
     cursor?: string;
     status?: PaymentStatus | undefined;
-  }): Promise<any> { // TODO: Define proper return type based on repository response
+  }): Promise<PaymentListResult> {
 
     const event = await this.eventRepo.findById(params.eventId);
 
@@ -323,7 +349,7 @@ export class PaymentService {
     return payments;
 }
 
-  async getPaymentById(paymentId: string) {
+  async getPaymentById(paymentId: string): Promise<PaymentDetailResult> {
 
     const payment = await this.paymentRepo.findById(paymentId);
     if(!payment) {

@@ -139,7 +139,7 @@ export class SubmissionController {
             const draft = {
                 answers: req.body.answers,
                 contact: req.body.contact,
-                updateAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             }
 
             await this.submissionService.saveDraft(slug as string, visitorUuid, draft);

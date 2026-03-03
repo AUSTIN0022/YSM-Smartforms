@@ -10,6 +10,14 @@ import { Server } from "http";
 let server: Server;
 let isShuttingDown = false;
 
+const REQUIRED_ENV = ['DATABASE_URL', 'REDIS_HOST', 'REDIS_PORT', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'];
+
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+    logger.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+    process.exit(1);
+}
+
 async function bootstrap() {
     try {
         logger.info("Bootstrapping server...");

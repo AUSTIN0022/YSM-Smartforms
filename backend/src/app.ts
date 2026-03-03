@@ -9,6 +9,7 @@ import helmet from "helmet";
 import addRequestId from "express-request-id";
 import { paymentController } from "./container";
 import { globalErrorHandler } from "./middlewares/error.middleware";
+import { authMiddleware } from "./middlewares/auth.middleware";
 import { serverAdapter } from './config/bull-board';
 import { prisma } from './config/db';
 import { redis } from './config/redis';
@@ -16,85 +17,81 @@ import { redis } from './config/redis';
 dotenv.config();
 const app = express();
 
-// security
+// Security headers
 app.use(helmet());
 
-// req id
+// Attach a unique request ID to every request
 app.use(addRequestId({
-    setHeader: true,
-    headerName: 'X-Request-Id',
-    attributeName: 'id'
+    setHeader:     true,
+    headerName:    'X-Request-Id',
+    attributeName: 'id',
 }));
 
-// Webhook
+// Razorpay webhook — must receive raw body BEFORE express.json() parses it
 app.post(
     "/api/payments/webhook",
     express.raw({ type: "application/json" }),
     paymentController.handleWebhook
 );
 
-// cors
-const corsOptions =  {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-    credentials: true
-}
-app.use(cors(corsOptions));
+// CORS
+app.use(cors({
+    origin:      process.env.ALLOWED_ORIGINS?.split(',') || '*',
+    credentials: true,
+}));
 
-// Logging
+// HTTP request logging
 morgan.token('id', (req: any) => req.id);
 app.use(morgan(
-    ":id :method :url :status :res[content-length] - :response-time ms", 
+    ":id :method :url :status :res[content-length] - :response-time ms",
     { stream: morganStream }
 ));
 
-// body parsing
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Local file storage
 app.use(
     "/storage",
-    express.static(path.resolve(process.cwd(), "storage" ))
-)
+    express.static(path.resolve(process.cwd(), "storage"))
+);
 
-// Bull queue Dashboard
-app.use('/admin/queues', serverAdapter.getRouter());
+// Bull Board — protected: only authenticated users can view the queue dashboard
+app.use('/admin/queues', authMiddleware, serverAdapter.getRouter());
 
-// Basic health check route
+// Health check — intentionally public so load balancers can ping it without a token
 app.get('/health', async (req, res) => {
-
     const [db, cache] = await Promise.allSettled([
         prisma.$queryRaw`SELECT 1`,
-        redis.ping()
-        
+        redis.ping(),
     ]);
 
     const healthy = db.status === 'fulfilled' && cache.status === 'fulfilled';
 
     res.status(healthy ? 200 : 503).json({
-        status: healthy ? 'OK' : 'DEGRADED',
-        db: db.status === 'fulfilled' ? 'OK' : 'ERROR',
-        cache: cache.status === 'fulfilled' ? 'OK' : 'ERROR',
-        uptime: process.uptime(),
+        status:    healthy ? 'OK' : 'DEGRADED',
+        db:        db.status    === 'fulfilled' ? 'OK' : 'ERROR',
+        cache:     cache.status === 'fulfilled' ? 'OK' : 'ERROR',
+        uptime:    process.uptime(),
         timestamp: new Date().toISOString(),
-        requestId: req.id
+        requestId: req.id,
     });
 });
 
-// All Routes
+// API routes
 app.use('/api', routes);
 
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
-        status: 'error',
-        message: 'Route not found',
-        requestId: req.id
+        success:   false,
+        message:   'Route not found',
+        requestId: req.id,
     });
 });
 
-
-
-// Global error handler
+// Global error handler — must be last
 app.use(globalErrorHandler);
 
 export default app;

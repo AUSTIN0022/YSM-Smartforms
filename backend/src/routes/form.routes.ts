@@ -1,8 +1,5 @@
 import { Router } from "express";
-import { FormController } from "../controllers/form.controller";
-import { FormService } from "../services/form.service";
-import { FormRepositories } from "../repositories/form.repo";
-import { EventRepository } from "../repositories/event.repo";
+import { formController } from "../container";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import {
@@ -12,11 +9,6 @@ import {
 
 const router = Router();
 
-//  Dependency wiring
-const formRepo = new FormRepositories();
-const eventRepo = new EventRepository();
-const formService = new FormService(formRepo, eventRepo);
-const formController = new FormController(formService);
 
 // ADMIN / AUTHENTICATED
 

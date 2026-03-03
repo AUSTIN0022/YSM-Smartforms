@@ -2,7 +2,7 @@ import { Contact } from "@prisma/client";
 import { prisma } from "../config/db";
 
 export interface IContactRepository {
- 
+
     createContact(data: {
         name?: string;
         email?: string;
@@ -10,7 +10,7 @@ export interface IContactRepository {
     }): Promise<Contact>;
 
     updateContact(data: {
-        id:string
+        id: string
         name?: string;
         email?: string;
         phone?: string;
@@ -34,15 +34,15 @@ export interface IContactRepository {
 }
 
 
-export class contactRepository implements IContactRepository {
-    
+export class ContactRepository implements IContactRepository {
+
     async createContact(data: { name?: string; email?: string; phone?: string; }): Promise<Contact> {
         return prisma.contact.create({
             data
         });
     }
-    
-    async updateContact(data: {id:string, name?: string; email?: string; phone?: string; }): Promise<Contact> {
+
+    async updateContact(data: { id: string, name?: string; email?: string; phone?: string; }): Promise<Contact> {
         return prisma.contact.update({
             where: { id: data.id },
             data: {
@@ -72,13 +72,13 @@ export class contactRepository implements IContactRepository {
     }
 
     async findContactByEmailOrPhone(email?: string, phone?: string): Promise<Contact | null> {
-        if( !email && !phone) return null;
-        
+        if (!email && !phone) return null;
+
         return prisma.contact.findFirst({
             where: {
                 OR: [
-                    ...(email ? [{ email }]: [] ),
-                    ...(phone ? [{ phone }]: [] )
+                    ...(email ? [{ email }] : []),
+                    ...(phone ? [{ phone }] : [])
                 ]
             }
         });
@@ -92,5 +92,5 @@ export class contactRepository implements IContactRepository {
         return rows.map((r) => r.eventId);
     }
 
-    
+
 }
