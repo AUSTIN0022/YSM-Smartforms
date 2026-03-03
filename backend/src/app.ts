@@ -10,6 +10,8 @@ import addRequestId from "express-request-id";
 import { paymentController } from "./container";
 import { globalErrorHandler } from "./middlewares/error.middleware";
 import { serverAdapter } from './config/bull-board';
+import { prisma } from './config/db';
+import { redis } from './config/redis';
 
 dotenv.config();
 const app = express();
@@ -58,9 +60,20 @@ app.use(
 app.use('/admin/queues', serverAdapter.getRouter());
 
 // Basic health check route
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'OK',
+app.get('/health', async (req, res) => {
+
+    const [db, cache] = await Promise.allSettled([
+        prisma.$queryRaw`SELECT 1`,
+        redis.ping()
+        
+    ]);
+
+    const healthy = db.status === 'fulfilled' && cache.status === 'fulfilled';
+
+    res.status(healthy ? 200 : 503).json({
+        status: healthy ? 'OK' : 'DEGRADED',
+        db: db.status === 'fulfilled' ? 'OK' : 'ERROR',
+        cache: cache.status === 'fulfilled' ? 'OK' : 'ERROR',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
         requestId: req.id
