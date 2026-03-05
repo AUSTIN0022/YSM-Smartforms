@@ -9,6 +9,7 @@ export const toEventResponseDTO = (event: EventWithConfig): EventResponseDTO => 
         slug: event.slug,
         description: event.description,
         status: event.status,
+        createdAt: event.createdAt,
         paymentEnabled: event.paymentEnabled,
         templateType: event.templateType,
     };

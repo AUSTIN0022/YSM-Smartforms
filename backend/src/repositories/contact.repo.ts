@@ -1,5 +1,11 @@
-import { Contact } from "@prisma/client";
+import { Contact, ContactTag, ContactEvent, Tag } from "@prisma/client";
 import { prisma } from "../config/db";
+
+// Rich contact type returned by listContacts — includes tags and linked events
+export type ContactWithRelations = Contact & {
+    tags: (ContactTag & { tag: Tag })[];
+    contactEvents: Pick<ContactEvent, 'eventId' | 'source'>[];
+};
 
 export interface IContactRepository {
 
@@ -16,6 +22,15 @@ export interface IContactRepository {
         phone?: string;
     }): Promise<Contact>;
 
+    createManyContact(data: {
+        name?: string;
+        email?: string;
+        phone?: string;
+    }[]): Promise<number>;
+
+    softDeleteContact(id: string): Promise<void>;
+    restoreContact(id: string): Promise<void>;
+
     findById(id: string): Promise<Contact | null>;
     findByEmail(email: string): Promise<Contact | null>;
     findByPhone(phone: string): Promise<Contact | null>;
@@ -29,7 +44,17 @@ export interface IContactRepository {
      * Returns all event IDs linked to a contact via ContactEvent.
      * Used to auto-resolve eventId when sending messages from the Contacts tab.
      */
+    findByIdWithRelations(id: string): Promise<ContactWithRelations | null>;
+
     findEventIdsByContactId(contactId: string): Promise<string[]>;
+
+    listContacts(params: {
+        search?: string;
+        lastId?: string;
+        take?: number;
+    }): Promise<ContactWithRelations[]>;
+
+    countContacts(search?: string): Promise<number>;
 
 }
 
@@ -46,28 +71,68 @@ export class ContactRepository implements IContactRepository {
         return prisma.contact.update({
             where: { id: data.id },
             data: {
-                name: data.name ?? null,
-                email: data.email ?? null,
-                phone: data.phone ?? null
+                ...(data.name !== undefined && { name: data.name}),
+                ...(data.email !== undefined && { email: data.email}),
+                ...(data.phone !== undefined && { phone: data.phone}),
             }
         });
     }
 
+    async createManyContact(data: { 
+        name?: string; 
+        email?: string; 
+        phone?: string; 
+    }[]): Promise<number> {
+        
+        const result = await prisma.contact.createMany({
+            data,
+            skipDuplicates: true,
+        });
+
+        return result.count;
+    }
+
+    async softDeleteContact(id: string): Promise<void> {
+        await prisma.contact.update({
+            where: {
+                id
+            },
+            data: {
+                isDeleted: true,
+            }
+        })
+    }
+    async restoreContact(id: string): Promise<void> {
+        await prisma.contact.update({
+            where: { id },
+            data: { isDeleted: false }
+        })
+    }
+
     async findById(id: string): Promise<Contact | null> {
-        return prisma.contact.findUnique({
-            where: { id }
+        return prisma.contact.findFirst({
+            where: { 
+                id,
+                isDeleted: false,
+             }
         });
     }
 
     async findByEmail(email: string): Promise<Contact | null> {
-        return prisma.contact.findUnique({
-            where: { email }
+        return prisma.contact.findFirst({
+            where: { 
+                email, 
+                isDeleted: false,
+            }
         });
     }
 
     async findByPhone(phone: string): Promise<Contact | null> {
-        return prisma.contact.findUnique({
-            where: { phone }
+        return prisma.contact.findFirst({
+            where: { 
+                phone,
+                isDeleted: false,
+            }
         });
     }
 
@@ -79,8 +144,19 @@ export class ContactRepository implements IContactRepository {
                 OR: [
                     ...(email ? [{ email }] : []),
                     ...(phone ? [{ phone }] : [])
-                ]
+                ],
+                isDeleted: false,
             }
+        });
+    }
+
+    async findByIdWithRelations(id: string): Promise<ContactWithRelations | null> {
+        return prisma.contact.findFirst({
+            where: { id, isDeleted: false },
+            include: {
+                tags: { include: { tag: true } },
+                contactEvents: { select: { eventId: true, source: true } },
+            },
         });
     }
 
@@ -92,5 +168,55 @@ export class ContactRepository implements IContactRepository {
         return rows.map((r) => r.eventId);
     }
 
+    async listContacts(params: { 
+        search?: string; 
+        lastId?: string; 
+        take?: number; 
+    }): Promise<ContactWithRelations[]> {
+        
+        const  { search, lastId, take = 20 } = params;
+
+        return await prisma.contact.findMany({
+            where: {
+                isDeleted: false,
+                ...(search && {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' }},
+                        { email: { contains: search, mode: 'insensitive' }},
+                        { phone: { contains: search, mode: 'insensitive' }},
+                    ],
+                }),
+            },
+            include: {
+                tags: {
+                    include: { tag: true }
+                },
+                contactEvents: {
+                    select: { eventId: true, source: true }
+                }
+            },
+            orderBy: { createdAt: "desc" },
+            ...(lastId && {
+                cursor: { id: lastId },
+                skip: 1,
+            }),
+            take,
+        });
+    }
+
+    async countContacts(search?: string): Promise<number> {
+        return prisma.contact.count({
+            where: {
+                isDeleted: false,
+                ...(search && {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' }},
+                        { email: { contains: search, mode: 'insensitive' }},
+                        { phone: { contains: search, mode: 'insensitive' }},
+                    ]
+                })
+            }
+        })
+    }
 
 }

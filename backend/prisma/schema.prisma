@@ -242,6 +242,7 @@ model Contact {
   phone         String?     @unique
   createdAt     DateTime    @default(now())
   isDeleted     Boolean     @default(false)
+  updatedAt     DateTime    @updatedAt
 
   contactEvents   ContactEvent[]
   formSubmissions FormSubmission[]
@@ -253,6 +254,7 @@ model Contact {
 
   @@index([email])
   @@index([phone])
+  @@index([createdAt])
 
 }
 

@@ -8,6 +8,7 @@ export interface EventResponseDTO {
     status: "DRAFT" | "ACTIVE" | "CLOSED";
     templateType: CertificateTemplateType;
     paymentEnabled: boolean;
+    createdAt: Date;
     paymentConfig?: {
         amount: number;
         currency: string;

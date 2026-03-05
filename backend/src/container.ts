@@ -30,6 +30,11 @@ import { FileController } from "./controllers/file.controller";
 import { FormController } from "./controllers/form.controller";
 import { MessageController } from "./controllers/message.controller";
 import { SubmissionController } from "./controllers/submission.controller";
+import { TagRepository } from "./repositories/tag.repo";
+import { ContactService } from "./services/contact.service";
+import { TagService } from "./services/tag.service";
+import { ContactController } from "./controllers/contact.controller";
+import { TagController } from "./controllers/tag.controller";
 
 
 // Repositories
@@ -42,6 +47,7 @@ const formRepo = new FormRepositories();
 const messageRepo = new MessageRepository();
 const paymentRepo = new PaymentRepository();
 const submissionRepo = new SubmissionsRepository();
+const tagRepo = new TagRepository();
 const userRepo = new UserRepository();
 
 // Providers
@@ -53,20 +59,24 @@ const analyticsService = new AnalyticsService(analyticsRepo, eventRepo);
 const authService = new AuthService(userRepo);
 const eventService = new EventService(eventRepo);
 const certificateService = new CertificateService(certificateRepo, submissionRepo, eventService);
+const contactService = new ContactService(contactRepo, tagRepo);
 const fileService = new FileService(fileRepo, storage);
 const formService = new FormService(formRepo, eventRepo);
 const messageService = new MessageService(messageRepo, contactRepo, eventRepo);
 const paymentService = new PaymentService(paymentRepo, eventRepo, submissionRepo, Razorpay);
 const submissionsService = new SubmissionService(submissionRepo, formRepo, eventRepo, contactRepo);
+const tagService = new TagService(tagRepo, contactRepo);
 
 
 // Controllers
 export const analyticsController = new AnalyticsController(analyticsService);
 export const authController = new AuthController(authService);
 export const certificateController = new CertificateController(certificateService);
+export const contactController = new ContactController(contactService);
 export const eventController = new EventController(eventService);
 export const fileController = new FileController(fileService);
 export const formController = new FormController(formService);
 export const messageController = new MessageController(messageService);
 export const paymentController = new PaymentController(paymentService);
 export const submissionController = new SubmissionController(submissionsService);
+export const tagController = new TagController(tagService);

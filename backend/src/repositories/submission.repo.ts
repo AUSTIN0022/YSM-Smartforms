@@ -95,36 +95,33 @@ export class SubmissionsRepository implements ISubmissionRepository {
     }
 
     async createVisitSession(data: { visitorId: string; eventId: string; status: SubmissionStatus }): Promise<VisitSession> {
-        const existing = await prisma.visitSession.findUnique({
-            where: {
-                visitorId_eventId: {
-                    visitorId: data.visitorId,
-                    eventId: data.eventId,
-                },
-            },
-        });
-
-        // No session → create
-        if (!existing) {
-            return prisma.visitSession.create({ data });
-        }
-
-        // Enforce monotonic progression
         const order: Record<SubmissionStatus, number> = {
             VISITED: 1,
             STARTED: 2,
             SUBMITTED: 3,
         };
 
-        if (order[data.status] <= order[existing.status]) {
-            return existing;
+        // Atomic upsert — avoids race condition on duplicate rapid calls
+        const session = await prisma.visitSession.upsert({
+            where: {
+                visitorId_eventId: {
+                    visitorId: data.visitorId,
+                    eventId: data.eventId,
+                },
+            },
+            create: data,
+            update: {},  // will be conditionally upgraded below
+        });
+
+        // Upgrade status only if the new status is higher
+        if (order[data.status] > order[session.status]) {
+            return prisma.visitSession.update({
+                where: { id: session.id },
+                data: { status: data.status },
+            });
         }
 
-        // Upgrade only
-        return prisma.visitSession.update({
-            where: { id: existing.id },
-            data: { status: data.status },
-        });
+        return session;
     }
 
 
