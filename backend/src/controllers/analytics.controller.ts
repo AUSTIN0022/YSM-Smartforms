@@ -39,4 +39,28 @@ export class AnalyticsController {
             next(error);
         }
     }
+
+    getDailyAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const eventId = req.params.eventId as string;
+
+            if (!eventId) throw new BadRequestError("Event ID is needed for daily analytics");
+
+            const days = req.query.days ? Number(req.query.days) : 30;
+
+            if (isNaN(days) || days < 1 || days > 365) {
+                throw new BadRequestError("days must be a number between 1 and 365");
+            }
+
+            const result = await this.analyticsService.getEventAnalyticsRange(eventId, days);
+
+            res.status(200).json({
+                success: true,
+                data: result.timeline,
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
 }

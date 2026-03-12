@@ -15,6 +15,11 @@ export type CertificateWithRelations = Certificate & {
         slug: string;
         date: Date | null;
     };
+    fileAsset: {
+        id: string;
+        url: string;
+        name: string;
+    } | null;
 }
 
 
@@ -33,6 +38,8 @@ export interface ICertificateRepository {
     findById(id: string): Promise<CertificateWithRelations | null>;
 
     findBySubmissionId(submissionId: string): Promise<Certificate | null>;
+
+    findByEventId(eventId: string): Promise<CertificateWithRelations[]>;
 
     updateStatus(
         id: string,
@@ -55,29 +62,31 @@ export class CertificateRepository implements ICertificateRepository {
     }
 
 
+    private readonly certInclude = {
+        contact: {
+            select: { id: true, name: true, email: true, phone: true },
+        },
+        event: {
+            select: { id: true, title: true, description: true, slug: true, date: true },
+        },
+        fileAsset: {
+            select: { id: true, url: true, name: true },
+        },
+    } as const;
+
     async findById(id: string): Promise<CertificateWithRelations | null> {
-         return await prisma.certificate.findUnique({
+        return await prisma.certificate.findUnique({
             where: { id },
-            include: {
-                contact: {
-                    select: {
-                        id: true, 
-                        name: true,
-                        email: true,
-                        phone: true,
-                    }
-                },
-                event: {
-                    select: {
-                        id: true,
-                        title: true,
-                        description: true,
-                        slug: true,
-                        date: true,
-                    }
-                }
-            }
-         });
+            include: this.certInclude,
+        });
+    }
+
+    async findByEventId(eventId: string): Promise<CertificateWithRelations[]> {
+        return await prisma.certificate.findMany({
+            where: { eventId, isDeleted: false },
+            include: this.certInclude,
+            orderBy: { issuedAt: 'desc' },
+        });
     }
 
     async findBySubmissionId(submissionId: string): Promise<Certificate | null> {

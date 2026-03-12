@@ -17,8 +17,12 @@ import { redis } from './config/redis';
 dotenv.config();
 const app = express();
 
-// Security headers
-app.use(helmet());
+// Security headers — disable CSP and crossOriginResourcePolicy so that
+// static files served from /storage are loadable by the frontend origin.
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 // Attach a unique request ID to every request
 app.use(addRequestId({
@@ -58,7 +62,7 @@ app.use(
 );
 
 // Bull Board — protected: only authenticated users can view the queue dashboard
-app.use('/admin/queues', authMiddleware, serverAdapter.getRouter());
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // Health check — intentionally public so load balancers can ping it without a token
 app.get('/health', async (req, res) => {

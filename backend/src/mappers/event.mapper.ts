@@ -12,6 +12,7 @@ export const toEventResponseDTO = (event: EventWithConfig): EventResponseDTO => 
         createdAt: event.createdAt,
         paymentEnabled: event.paymentEnabled,
         templateType: event.templateType,
+        bannerUrl: event.bannerUrl ?? null,
     };
 
     if (event.paymentConfig) {

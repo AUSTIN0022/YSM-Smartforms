@@ -79,7 +79,6 @@ export class CertificateService {
     return existing;
   }
 
-
   private async ensureJobExists(certificateId: string) { 
     const job = await certificateQueue.getJob(certificateId);
 
@@ -106,6 +105,23 @@ export class CertificateService {
 
   }
 
+  async getByEventId(eventId: string) {
+    const certificates = await this.certificateRepo.findByEventId(eventId);
+
+    return certificates.map(cert => ({
+      id:           cert.id,
+      submissionId: cert.submissionId,
+      status:       cert.status,
+      templateType: cert.templateType,
+      issuedAt:     cert.issuedAt,
+      contact: cert.contact
+        ? { id: cert.contact.id, name: cert.contact.name, email: cert.contact.email }
+        : null,
+      fileUrl:      cert.fileAsset?.url ?? null,
+      fileName:     cert.fileAsset?.name ?? null,
+    }));
+  }
+
   async findById(certificateId: string) {
     
     const certificate = await this.certificateRepo.findById(certificateId);
@@ -117,7 +133,7 @@ export class CertificateService {
     const data  = {
         valid:      certificate.status === "GENERATED",
         status:     certificate.status,
-        issuedTo:   certificate.contact?.email ?? null,
+        issuedTo:   certificate.contact?.name ?? null,
         email:      certificate.contact?.email ?? null,
         event:      certificate.event.title,
         issuedAt:   certificate.issuedAt,

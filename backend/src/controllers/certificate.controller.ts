@@ -56,6 +56,25 @@ export class CertificateController {
     }
   };
 
+  getByEvent = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { eventId } = req.params;
+
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ success: false, message: 'eventId is required' });
+      }
+
+      const certificates = await this.certificateService.getByEventId(eventId);
+
+      return res.status(200).json({
+        success: true,
+        data: certificates,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   verify = async (req: Request, res: Response, next: NextFunction) => {
     const { certificateId } = req.query;
 

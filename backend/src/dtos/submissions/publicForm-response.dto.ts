@@ -5,12 +5,17 @@ export interface PublicFormResponseDTO {
         id: string;
         title: string;
         slug: string;
+        status: string;
+        description?: string | undefined;
+        bannerUrl?: string | null;
+        paymentEnabled?: boolean;
+        paymentConfig?: any;
     };
 
     form: {
         id: string;
         isMultiStep: boolean;
-        settings?:any;
+        settings?: any;
         publishedAt: Date;
 
         steps?: Array<{

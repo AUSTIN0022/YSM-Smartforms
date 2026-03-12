@@ -65,7 +65,6 @@ export class TagRepository implements ITagRepository {
             where:{
                 tagId
             }
-            
         })
     }
 

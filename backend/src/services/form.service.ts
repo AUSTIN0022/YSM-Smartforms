@@ -1,6 +1,8 @@
 import { FormResponseDTO } from "../dtos/form/form-response.dto";
+import { PublicFormResponseDTO } from "../dtos/submissions/publicForm-response.dto";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../errors/http-errors";
 import { toFormResponseDTO } from "../mappers/form.mapper";
+import { toPublicFormResponseDTO } from "../mappers/publicForm.mapper";
 import { IEventRepository } from "../repositories/event.repo";
 import { IFormRepository } from "../repositories/form.repo";
 import { FormInput } from "../validators/form.schema";
@@ -90,12 +92,15 @@ export class FormService {
     }
 
 
-    async getFormBySlug(slug: string): Promise<FormResponseDTO> {
-        const form = await this.formRepo.findBySlug(slug);
+    async getFormBySlug(slug: string): Promise<PublicFormResponseDTO> {
+        const result = await this.formRepo.findBySlug(slug);
 
-        if (!form) throw new NotFoundError("Form not found");
+        if (!result) throw new NotFoundError("Form not found");
 
-        return toFormResponseDTO(form)
+        return toPublicFormResponseDTO({
+            event: result.event,
+            form: result.form,
+        });
     }
 
     async publishForm(userId: string, formId: string): Promise<FormResponseDTO> {

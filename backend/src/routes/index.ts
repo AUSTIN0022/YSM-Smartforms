@@ -15,7 +15,7 @@ const router = Router();
 
 router.use("/auth", authRoutes);
 router.use("/events", eventRoutes);
-router.use("/forms", submissionRouter)
+router.use("/submissions", submissionRouter)
 router.use("/forms", formRouter);
 router.use("/files", fileRouter);
 router.use("/analytics", analyticsRouter);

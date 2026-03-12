@@ -51,3 +51,6 @@ export const validateFile =
 
     next();
   };
+
+
+  export const validateBannerFile = validateFile({ category: "image", maxSizeMB: 5 });

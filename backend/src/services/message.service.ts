@@ -20,7 +20,7 @@ type SendMessageInput = {
 }
 
 const TEMPLATE_REQUIRED_FIELDS: Record<MessageTemplate, string[]> = {
-    [MessageTemplate.OTP_VERIFICATION_CODE]: ["otp", "name"],
+    [MessageTemplate.OTP_VERIFICATION_CODE]: ["otp"],
     [MessageTemplate.YSM_ONBOARDING_MESSAGE]: ["name"],
     [MessageTemplate.BIRTHDAY_WISHES_YSM]: ["name"],
     [MessageTemplate.FEEDBACK_COLLECTION_MESSAGE]: ["name", "eventName"],
@@ -40,20 +40,14 @@ export class MessageService {
         private eventRepo: IEventRepository
     ) { }
 
-    async sendMessage(input: SendMessageInput) {
-
-        const contact = await this.contactRepo.findById(input.contactId);
+    private async resolveTemplateParams(
+        contactId: string,
+        template: MessageTemplate,
+        eventId?: string
+    ): Promise<{ resolved: Record<string, string>; missing: string[]; resolvedEventId?: string | undefined }> {
+        const contact = await this.contactRepo.findById(contactId);
         if (!contact) {
             throw new NotFoundError("Contact not found");
-        }
-
-        if (!input.template) {
-            throw new BadRequestError("Template is required");
-        }
-
-        const template = MessageTemplate[input.template as keyof typeof MessageTemplate];
-        if (!template) {
-            throw new BadRequestError("Invalid template");
         }
 
         // ── Event resolution ────────────────────────────────────────────────
@@ -64,10 +58,10 @@ export class MessageService {
         // ContactEvent. If the contact is linked to exactly one event we use that.
         // If linked to multiple, we throw and ask the caller to be explicit.
         //
-        let resolvedEventId = input.eventId;
+        let resolvedEventId = eventId;
 
         if (EVENT_REQUIRED_TEMPLATES.has(template) && !resolvedEventId) {
-            const linkedEventIds = await this.contactRepo.findEventIdsByContactId(input.contactId);
+            const linkedEventIds = await this.contactRepo.findEventIdsByContactId(contactId);
 
             if (linkedEventIds.length === 0) {
                 throw new BadRequestError(
@@ -96,7 +90,7 @@ export class MessageService {
         // Resolve params from contact + event
         const event = resolvedEventId ? await this.eventRepo.findById(resolvedEventId) : null;
 
-        const resolvedParams: any = {
+        const resolvedParams: Record<string, string> = {
             name: contact.name || "Participant",
             ...(event && {
                 eventName: event.title,
@@ -109,6 +103,43 @@ export class MessageService {
                 link: event.link ?? `${process.env.DOMAIN}/event/${event.slug}`,
             })
         };
+
+        const requiredFields = TEMPLATE_REQUIRED_FIELDS[template] ?? [];
+        const missing = requiredFields.filter(field => {
+            const val = resolvedParams[field];
+            return val === undefined || val === null || val === "";
+        });
+
+        return { resolved: resolvedParams, missing, resolvedEventId };
+    }
+
+    async resolveParams(input: {
+        contactId: string
+        eventId?: string
+        template: string
+    }): Promise<{ resolved: Record<string, string>; missing: string[] }> {
+        const template = MessageTemplate[input.template as keyof typeof MessageTemplate];
+        if (!template) throw new BadRequestError("Invalid template");
+        const { resolved, missing } = await this.resolveTemplateParams(input.contactId, template, input.eventId);
+        return { resolved, missing };
+    }
+
+    async sendMessage(input: SendMessageInput) {
+
+        if (!input.template) {
+            throw new BadRequestError("Template is required");
+        }
+
+        const template = MessageTemplate[input.template as keyof typeof MessageTemplate];
+        if (!template) {
+            throw new BadRequestError("Invalid template");
+        }
+
+        const { resolved: resolvedParams, resolvedEventId } = await this.resolveTemplateParams(
+            input.contactId,
+            template,
+            input.eventId
+        );
 
         const mergedParams: any = { ...resolvedParams, ...input.params };
 
@@ -171,12 +202,19 @@ export class MessageService {
         eventId?: string,
         email?: string,
         phone?: string,
+        limit?: number,
+        offset?: number,
     ) {
+        const options: { limit?: number; offset?: number } = {};
+        if (limit !== undefined) options.limit = limit;
+        if (offset !== undefined) options.offset = offset;
+
         return this.messageRepo.getMessages(
             contactId,
             eventId,
             email,
-            phone
+            phone,
+            options
         );
     }
 }

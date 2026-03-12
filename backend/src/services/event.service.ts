@@ -25,6 +25,7 @@ export class EventService {
             ...(data.templateType && { templateType: data.templateType }),
             date: data.date ? new Date(data.date) : null,
             link: data.link ?? `${process.env.DOMAIN}/event/${slug}`,
+            bannerUrl: data.bannerUrl ?? null,
             paymentEnabled: data.paymentEnabled,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount,
@@ -46,6 +47,7 @@ export class EventService {
             description: data.description ?? undefined,
             status: data.status ?? undefined,
             link: data.link ?? `${process.env.DOMAIN}/event/${event.slug}`,
+            bannerUrl: data.bannerUrl ?? null,
             paymentEnabled: data.paymentEnabled ?? undefined,
             paymentConfig: data.paymentConfig ? {
                 amount: data.paymentConfig.amount ?? undefined,

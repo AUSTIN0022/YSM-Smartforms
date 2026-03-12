@@ -115,6 +115,7 @@ model Event {
   templateType    CertificateTemplateType   @default(COMPLETION)
   date            DateTime?
   link            String?
+  bannerUrl       String?
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   form            Form?

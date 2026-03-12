@@ -8,7 +8,7 @@ export class MessageController {
 
     send = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { contactId, eventId, type, template } = req.body;
+            const { contactId, eventId, type, template, params } = req.body;
 
             if (!contactId || !type || !template) {
                 throw new BadRequestError("contactId, type, template required");
@@ -18,7 +18,8 @@ export class MessageController {
                 contactId,
                 eventId,
                 type,
-                template
+                template,
+                params
             });
 
             return res.status(202).json({
@@ -31,19 +32,48 @@ export class MessageController {
             next(error);
         }
     }
-    getMessages = async (req: Request, res: Response, next: NextFunction) => {
 
+    resolveParams = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { contactId, eventId, template } = req.body
+
+            if (!contactId || !template) {
+                return res.status(400).json({ success: false, message: "contactId and template are required" })
+            }
+
+            const result = await this.messageService.resolveParams({
+                contactId,
+                eventId,
+                template,
+            })
+
+            return res.status(200).json({ success: true, data: result })
+        } catch (error) {
+            next(error)
+        }
+    }
+
+    getMessages = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const contactId = req.query.contactId as string;
             const eventId = req.query.eventId as string;
             const email = req.query.email as string;
             const phone = req.query.phone as string;
+            const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 15;
+            const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
 
-            const result = await this.messageService.getMessages(contactId, eventId, email, phone)
+            const result = await this.messageService.getMessages(
+                contactId, eventId, email, phone, limit, offset
+            );
 
             res.json({
                 success: true,
-                data: result
+                data: result,
+                pagination: {
+                    limit,
+                    offset,
+                    count: result.length,
+                }
             });
         } catch (error) {
             next(error);

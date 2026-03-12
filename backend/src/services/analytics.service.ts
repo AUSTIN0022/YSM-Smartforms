@@ -104,7 +104,37 @@ export class AnalyticsService {
 
         const rows = await this.analyticsRepo.getDailyAnalytics(eventId, fromDate);
 
-        const totals = rows.reduce(
+        // Build a lookup from date string → row
+        const rowMap = new Map<string, { visits: number; started: number; submitted: number }>();
+        for (const r of rows) {
+            const key = r.date.toISOString().slice(0, 10); // "YYYY-MM-DD"
+            rowMap.set(key, {
+                visits: r.visits,
+                started: r.started,
+                submitted: r.submitted,
+            });
+        }
+
+        // Fill in zeros for every day in the range
+        const timeline: { date: string; visits: number; started: number; submitted: number }[] = [];
+        const cursor = new Date(fromDate);
+        cursor.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        while (cursor <= today) {
+            const key = cursor.toISOString().slice(0, 10);
+            const existing = rowMap.get(key);
+            timeline.push({
+                date: key,
+                visits: existing?.visits ?? 0,
+                started: existing?.started ?? 0,
+                submitted: existing?.submitted ?? 0,
+            });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        const totals = timeline.reduce(
             (acc, r) => {
                 acc.visits += r.visits;
                 acc.started += r.started;
@@ -119,7 +149,7 @@ export class AnalyticsService {
             conversionRate: totals.started === 0
                 ? 0
                 : (totals.submitted / totals.started) * 100,
-            timeline: rows,
+            timeline,
         };
     }
 

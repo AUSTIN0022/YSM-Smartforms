@@ -89,6 +89,7 @@ export const WhatsAppTemplates: {
         build: (params) => ({
             templateParams: [
                 params.name,
+                params.eventName,
                 params.date,
                 params.time,
                 params.link,

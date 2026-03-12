@@ -46,7 +46,7 @@ export class CertificateWorkerService {
                         data, 
                         template,
                         certificateId: certificate.id,
-                        baseUrl: process.env.BASE_URL || "http://localhost:3000"});
+                        baseUrl: process.env.FRONTEND_URL || "http://localhost:3000"});
 
             const filename = `${certificate.event.title}-${certificate.contact?.name ?? "participant" }.pdf`
                                 .replace(/\s+/g, "_").toLowerCase();
