@@ -24,7 +24,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Backend API ─────────────────────────────────────────────────────────────
+  # ── Backend API ──
   backend:
     build:
       context: ./backend
@@ -54,7 +54,7 @@ services:
       retries: 3
       start_period: 20s
 
-  # ── Background Worker ───────────────────────────────────────────────────────
+  # ── Background Worker ──
   # Runs the BullMQ worker process (messages, certificates, analytics)
   # Same image as backend — different CMD
   worker:
@@ -78,7 +78,7 @@ services:
     networks:
       - internal
 
-  # ── Frontend ─────────────────────────────────────────────────────────────────
+  # ── Frontend ──
   frontend:
     build:
       context: ./frontend
@@ -98,12 +98,12 @@ services:
     networks:
       - external
 
-# ─── Volumes ──────────────────────────────────────────────────────────────────
+# ─── Volumes ──
 volumes:
   redis-data:
   uploads:        # shared between backend + worker for local PDF/file storage
 
-# ─── Networks ─────────────────────────────────────────────────────────────────
+# ─── Networks ──
 networks:
   internal:       # redis ↔ backend ↔ worker (not exposed to host)
     driver: bridge
